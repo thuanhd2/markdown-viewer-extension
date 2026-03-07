@@ -60,13 +60,13 @@ let globalCacheStorage: CacheStorage | null = null;
 const injectedTabs = new Set<number>();
 
 // Supported file extensions for CSP modification
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.mermaid', '.vega', '.vl', '.vega-lite', '.gv', '.dot', '.infographic'];
+import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
 
 function shouldModifyCSP(url: string): boolean {
   try {
     const urlObj = new URL(url);
     const pathname = urlObj.pathname.toLowerCase();
-    return SUPPORTED_EXTENSIONS.some(ext => pathname.endsWith(ext));
+    return ALL_SUPPORTED_EXTENSIONS.some(ext => pathname.endsWith(ext));
   } catch {
     return false;
   }
