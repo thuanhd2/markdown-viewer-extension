@@ -184,7 +184,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown sang Word hoàn hảo — Mermaid, Vega, drawio, canvas, infographic, Graphviz, LaTeX (có thể chỉnh sửa), tô sáng mã, xử lý cục bộ.",
+    "message": "Markdown sang Word hoàn hảo — Mermaid, PlantUML, Vega, drawio, canvas, infographic, Graphviz, LaTeX (có thể chỉnh sửa), tô sáng mã, xử lý cục bộ.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Biểu đồ Mermaid (.mermaid)",
     "description": "Checkbox label for Mermaid format support"
+  },
+  "settings_support_plantuml": {
+    "message": "Biểu đồ PlantUML (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Biểu đồ Vega (.vega)",

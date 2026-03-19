@@ -74,6 +74,7 @@ export const createBuildConfig = () => {
     // Only mermaid is external (2.6MB) - loaded via separate script tag
     external: [
       'mermaid',
+      'web-worker',
     ],
     define: {
       'process.env.NODE_ENV': '"production"',

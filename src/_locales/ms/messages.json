@@ -184,7 +184,7 @@
     "description": "Fallback message when DOCX export fails"
   },
   "extensionDescription": {
-    "message": "Markdown ke Word sempurna — Mermaid, Vega, drawio, canvas, infografik, Graphviz, LaTeX (boleh diedit), penyerlahan kod, pemprosesan tempatan.",
+    "message": "Markdown ke Word sempurna — Mermaid, PlantUML, Vega, drawio, canvas, infografik, Graphviz, LaTeX (boleh diedit), penyerlahan kod, pemprosesan tempatan.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Gambarajah Mermaid (.mermaid)",
     "description": "Checkbox label for enabling Mermaid file support"
+  },
+  "settings_support_plantuml": {
+    "message": "Rajah PlantUML (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Carta Vega (.vega)",

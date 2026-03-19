@@ -31,10 +31,12 @@ tags: [markdown, test, demo]
 9. **DOT 图表** - [完整演示](./dot-demo.md)
 10. **Infographic 图表** - [完整演示](./infographic-demo.md)
 11. **Canvas 画布** - [完整演示](./canvas-demo.md)
-12. **HTML 混合** - [完整演示](./html-demo.md)
-13. **Emoji 短代码** - [完整演示](./emoji-demo.md)
-14. **边界测试** - 错误处理、极端情况
-15. **Inline HTML 详测** - [完整演示](./inline-html-test.md)
+12. **PlantUML 图表** - [完整演示](./plantuml-demo.md)
+13. **drawio 画布** - drawio XML 原生图表
+14. **HTML 混合** - [完整演示](./html-demo.md)
+15. **Emoji 短代码** - [完整演示](./emoji-demo.md)
+16. **边界测试** - 错误处理、极端情况
+17. **Inline HTML 详测** - [完整演示](./inline-html-test.md)
 
 ---
 
@@ -710,7 +712,77 @@ data
 
 ---
 
-## 13. drawio 画布
+## 13. PlantUML 图表
+
+> 📖 完整演示请查看 [PlantUML 图表完整演示](./plantuml-demo.md)
+
+### 13.1 类图
+
+```plantuml
+@startuml
+class User {
+  +String name
+  +String email
+  +login()
+  +logout()
+}
+
+class Order {
+  +int id
+  +Date date
+  +addItem()
+  +getTotal()
+}
+
+class Product {
+  +String name
+  +float price
+}
+
+User "1" -- "*" Order : places
+Order "*" -- "*" Product : contains
+@enduml
+```
+
+### 13.2 序列图
+
+```puml
+@startuml
+actor User
+participant "Web App" as App
+participant "API Server" as API
+database "Database" as DB
+
+User -> App : 发送请求
+App -> API : REST API 调用
+API -> DB : 查询数据
+DB --> API : 返回结果
+API --> App : JSON 响应
+App --> User : 显示页面
+@enduml
+```
+
+### 13.3 活动图
+
+```plantuml
+@startuml
+start
+:收到订单;
+if (库存充足?) then (是)
+  :处理订单;
+  :安排发货;
+else (否)
+  :通知缺货;
+  :等待补货;
+endif
+:更新状态;
+stop
+@enduml
+```
+
+---
+
+## 14. drawio 画布
 
 # 网络架构图
 
@@ -864,7 +936,7 @@ data
 </mxfile>
 ```
 
-## 14. 图片处理
+## 15. 图片处理
 
 ### 14.1 SVG 文件测试
 
@@ -888,7 +960,7 @@ data
 
 ---
 
-## 15. 边界测试
+## 16. 边界测试
 
 ### 15.1 错误的 Mermaid 语法
 

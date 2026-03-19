@@ -184,7 +184,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown 匯出完美 Word — Mermaid、Vega、drawio、canvas、資訊圖、Graphviz、LaTeX 公式可編輯，程式碼高亮，本地處理.",
+    "message": "Markdown 匯出完美 Word — Mermaid、PlantUML、Vega、drawio、canvas、資訊圖、Graphviz、LaTeX 公式可編輯，程式碼高亮，本地處理.",
     "description": "擴充功能簡介"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Mermaid 圖表 (.mermaid)",
     "description": "Checkbox label for Mermaid format support"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML 圖表 (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Vega 圖表 (.vega)",

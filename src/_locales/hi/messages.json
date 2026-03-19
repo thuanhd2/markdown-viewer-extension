@@ -184,7 +184,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown से परफेक्ट Word — Mermaid, Vega, drawio, canvas, इन्फोग्राफिक, Graphviz, LaTeX (संपादन योग्य), कोड हाइलाइटिंग, स्थानीय प्रोसेसिंग.",
+    "message": "Markdown से परफेक्ट Word — Mermaid, PlantUML, Vega, drawio, canvas, इन्फोग्राफिक, Graphviz, LaTeX (संपादन योग्य), कोड हाइलाइटिंग, स्थानीय प्रोसेसिंग.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Mermaid आरेख (.mermaid)",
     "description": "Checkbox label for Mermaid format support"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML आरेख (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Vega चार्ट (.vega)",

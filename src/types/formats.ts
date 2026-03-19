@@ -27,6 +27,14 @@ export const SUPPORTED_FORMATS: readonly FormatDefinition[] = [
     "languageId": "mermaid"
   },
   {
+    "fileType": "plantuml",
+    "extensions": [
+      "plantuml",
+      "puml"
+    ],
+    "languageId": "plantuml"
+  },
+  {
     "fileType": "vega",
     "extensions": [
       "vega"

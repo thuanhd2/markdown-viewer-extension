@@ -120,7 +120,7 @@ async function buildIframeRenderWorker() {
       '.woff2': 'dataurl',
       '.ttf': 'dataurl',
     },
-    external: ['mermaid'],
+    external: ['mermaid', 'web-worker'],
   });
   console.log('✅ iframe-render-worker built');
 }

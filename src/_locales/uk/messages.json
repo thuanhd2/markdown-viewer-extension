@@ -184,7 +184,7 @@
     "description": "Fallback message when DOCX export fails"
   },
   "extensionDescription": {
-    "message": "Markdown у ідеальний Word — Mermaid, Vega, drawio, canvas, інфографіка, Graphviz, LaTeX (редагований), підсвітка коду, локальна обробка.",
+    "message": "Markdown у ідеальний Word — Mermaid, PlantUML, Vega, drawio, canvas, інфографіка, Graphviz, LaTeX (редагований), підсвітка коду, локальна обробка.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Діаграми Mermaid (.mermaid)",
     "description": "Checkbox label for enabling Mermaid file support"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML діаграми (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Графіки Vega (.vega)",

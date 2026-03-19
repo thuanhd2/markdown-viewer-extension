@@ -184,7 +184,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown を完璧な Word に — Mermaid、Vega、drawio、canvas、インフォグラフィック、Graphviz、LaTeX（編集可能）、コードハイライト、ローカル処理.",
+    "message": "Markdown を完璧な Word に — Mermaid、PlantUML、Vega、drawio、canvas、インフォグラフィック、Graphviz、LaTeX（編集可能）、コードハイライト、ローカル処理.",
     "description": "Chrome ウェブストアに表示される説明"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Mermaid図 (.mermaid)",
     "description": "Checkbox label for Mermaid format support"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML図 (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Vegaチャート (.vega)",

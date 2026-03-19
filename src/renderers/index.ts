@@ -12,6 +12,7 @@ import { DotRenderer } from './dot-renderer';
 import { InfographicRenderer } from './infographic-renderer';
 import { JsonCanvasRenderer } from './canvas-renderer';
 import { DrawioRenderer } from './drawio-renderer';
+import { PlantumlRenderer } from './plantuml-renderer';
 import type { BaseRenderer } from './base-renderer';
 
 // Export renderer instances array
@@ -24,5 +25,6 @@ export const renderers: BaseRenderer[] = [
   new DotRenderer(),
   new InfographicRenderer(),
   new JsonCanvasRenderer(),
-  new DrawioRenderer()
+  new DrawioRenderer(),
+  new PlantumlRenderer()
 ];

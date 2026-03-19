@@ -184,7 +184,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown täydelliseksi Wordiksi — Mermaid, Vega, drawio, canvas, infografiikka, Graphviz, LaTeX (muokattava), koodin korostus, paikallinen käsittely.",
+    "message": "Markdown täydelliseksi Wordiksi — Mermaid, PlantUML, Vega, drawio, canvas, infografiikka, Graphviz, LaTeX (muokattava), koodin korostus, paikallinen käsittely.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Mermaid-kaaviot (.mermaid)",
     "description": "Checkbox label for Mermaid format support"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML kaaviot (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Vega-kaaviot (.vega)",

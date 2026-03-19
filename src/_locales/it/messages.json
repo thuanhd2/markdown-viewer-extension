@@ -184,7 +184,7 @@
     "description": "Toast shown during export"
   },
   "extensionDescription": {
-    "message": "Markdown in Word perfetto — Mermaid, Vega, drawio, canvas, infografica, Graphviz, LaTeX (modificabile), evidenziazione codice, elaborazione locale.",
+    "message": "Markdown in Word perfetto — Mermaid, PlantUML, Vega, drawio, canvas, infografica, Graphviz, LaTeX (modificabile), evidenziazione codice, elaborazione locale.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Diagrammi Mermaid (.mermaid)",
     "description": "Checkbox label for Mermaid format support"
+  },
+  "settings_support_plantuml": {
+    "message": "Diagrammi PlantUML (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Grafici Vega (.vega)",

@@ -56,7 +56,7 @@
   },
   "dependencies": {
     "@antv/infographic": "^0.2.16",
-    "@markdown-viewer/drawio2svg": "^1.4.0",
+    "@markdown-viewer/drawio2svg": "^1.4.2",
     "@trbn/jsoncanvas": "^1.0.6",
     "@viz-js/viz": "^3.24.0",
     "buffer": "^6.0.3",
@@ -107,6 +107,7 @@
   "activationEvents": [
     "onLanguage:markdown",
     "onLanguage:mermaid",
+    "onLanguage:plantuml",
     "onLanguage:vega",
     "onLanguage:graphviz",
     "onLanguage:infographic",
@@ -125,6 +126,17 @@
         "extensions": [
           ".mermaid",
           ".mmd"
+        ]
+      },
+      {
+        "id": "plantuml",
+        "aliases": [
+          "Plantuml",
+          "plantuml"
+        ],
+        "extensions": [
+          ".plantuml",
+          ".puml"
         ]
       },
       {

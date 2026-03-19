@@ -148,7 +148,7 @@ async function buildWebview() {
       '.ttf': 'dataurl'
     },
     // Mermaid is loaded separately to keep bundle size manageable
-    external: ['mermaid']
+    external: ['mermaid', 'web-worker']
   });
 
   // Build CSS bundle separately

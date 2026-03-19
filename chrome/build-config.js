@@ -82,7 +82,7 @@ export const createBuildConfig = () => {
     },
     assetNames: '[name]', // Use original filename without hash
     // Mermaid is loaded separately via script tag to keep bundle size manageable
-    external: ['mermaid'],
+    external: ['mermaid', 'web-worker'],
     minify: true,
     sourcemap: false,
     plugins: [

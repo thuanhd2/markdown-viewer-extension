@@ -184,7 +184,7 @@
     "description": "Fallback message when DOCX export fails"
   },
   "extensionDescription": {
-    "message": "Markdown į tobulą Word — Mermaid, Vega, drawio, canvas, infografika, Graphviz, LaTeX (redaguojamas), kodo paryškinimas, vietinis apdorojimas.",
+    "message": "Markdown į tobulą Word — Mermaid, PlantUML, Vega, drawio, canvas, infografika, Graphviz, LaTeX (redaguojamas), kodo paryškinimas, vietinis apdorojimas.",
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Mermaid diagramos (.mermaid)",
     "description": "Checkbox label for enabling Mermaid file support"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML diagramos (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Vega grafikai (.vega)",

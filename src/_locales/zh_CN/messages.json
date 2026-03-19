@@ -184,7 +184,7 @@
     "description": "导出中提示"
   },
   "extensionDescription": {
-    "message": "Markdown 导出完美 Word — Mermaid、Vega、drawio、canvas、信息图、Graphviz、LaTeX 公式可编辑，代码高亮，本地处理.",
+    "message": "Markdown 导出完美 Word — Mermaid、PlantUML、Vega、drawio、canvas、信息图、Graphviz、LaTeX 公式可编辑，代码高亮，本地处理.",
     "description": "扩展简介"
   },
   "extensionName": {
@@ -506,6 +506,10 @@
   "settings_support_mermaid": {
     "message": "Mermaid 图表 (.mermaid)",
     "description": "启用 Mermaid 文件支持的复选框标签"
+  },
+  "settings_support_plantuml": {
+    "message": "PlantUML 图表 (.plantuml, .puml)",
+    "description": "Checkbox label for enabling PlantUML file support"
   },
   "settings_support_vega": {
     "message": "Vega 图表 (.vega)",
