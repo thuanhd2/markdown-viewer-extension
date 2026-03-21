@@ -257,6 +257,7 @@ export function createMarkdownRenderer(placeholderFn: DiagramPlaceholderFn) {
   // Shiki
   md.use(fromHighlighter(shiki as any, {
     themes: { light: 'vitesse-light', dark: 'vitesse-dark' },
+    defaultColor: false,
     defaultLanguage: 'text' as any,
     fallbackLanguage: 'text' as any,
     transformers: [
@@ -265,7 +266,14 @@ export function createMarkdownRenderer(placeholderFn: DiagramPlaceholderFn) {
         pre(node) {
           const cls = node.properties.class as string || ''
           node.properties.class = cls + ' slidev-code'
-          delete node.properties.style
+          // Keep --shiki-light / --shiki-dark CSS vars on <pre> so .line
+          // spans can inherit them; only strip explicit color/background.
+          if (typeof node.properties.style === 'string') {
+            node.properties.style = node.properties.style
+              .split(';')
+              .filter(s => s.trim().startsWith('--'))
+              .join(';') || undefined
+          }
         },
         root(node) {
           return {

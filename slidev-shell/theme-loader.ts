@@ -16,6 +16,7 @@ export interface ThemeModule {
     serif?: string
     local?: string
   }
+  colorSchema?: string
 }
 
 let _injectedStyle: HTMLStyleElement | null = null

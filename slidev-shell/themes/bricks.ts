@@ -39,3 +39,5 @@ export const fonts = {
   serif: 'Sigmar One',
   mono: 'Fira Code',
 }
+
+export const colorSchema = 'light'

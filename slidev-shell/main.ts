@@ -85,6 +85,23 @@ async function main() {
   if (theme) {
     ;(window as any).__SLIDEV__.themeLayouts = theme.layouts
     injectGoogleFonts(theme.fonts)
+    // Apply colorSchema: theme's fixed schema (dark/light) takes priority over
+    // frontmatter, because a dark-only theme like Dracula cannot work in light mode.
+    // Must also toggle DOM class directly because @slidev/client/logic/dark.ts
+    // uses a Vue computed+watch that already fired (immediate:true) before this
+    // point, and our non-reactive configs Proxy won't retrigger it.
+    const configSchema = (window as any).__SLIDEV__.configs.colorSchema
+    const themeSchema = theme.colorSchema
+    // Theme's fixed colorSchema wins; fallback to frontmatter
+    const effectiveSchema = (themeSchema && themeSchema !== 'auto' && themeSchema !== 'both')
+      ? themeSchema
+      : configSchema
+    if (effectiveSchema && effectiveSchema !== 'auto' && effectiveSchema !== 'both') {
+      ;(window as any).__SLIDEV__.configs.colorSchema = effectiveSchema
+      const dark = effectiveSchema === 'dark'
+      document.documentElement.classList.toggle('dark', dark)
+      document.documentElement.classList.toggle('light', !dark)
+    }
   }
 
   initSlides()

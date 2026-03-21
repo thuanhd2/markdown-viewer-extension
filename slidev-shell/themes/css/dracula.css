@@ -1,2 +1,40 @@
 @import 'slidev-theme-dracula/styles/code.css';
 @import 'slidev-theme-dracula/styles/layout.css';
+
+/*
+ * Dracula dark-mode overrides.
+ *
+ * The upstream code.css only defines prism variables under html:not(.dark),
+ * but Dracula declares colorSchema:'dark', so the shell sets html.dark.
+ * Without these overrides the prism/code variables fall back to the light
+ * defaults from prism-theme-vars/base.css, making code blocks unreadable.
+ */
+html.dark {
+  /* Slidev code-block background */
+  --slidev-code-background: #282a36;
+
+  /* Prism variables consumed by inline code and fallback styling */
+  --prism-foreground: #f8f8f2;
+  --prism-background: #282a36;
+  --prism-comment: #6272a4;
+  --prism-string: #f1fa8c;
+  --prism-literal: #bd93f9;
+  --prism-number: #bd93f9;
+  --prism-keyword: #ff79c6;
+  --prism-function: #50fa7b;
+  --prism-boolean: #bd93f9;
+  --prism-constant: #bd93f9;
+  --prism-deleted: #ff5555;
+  --prism-class: #8be9fd;
+  --prism-builtin: #8be9fd;
+  --prism-property: #50fa7b;
+  --prism-namespace: #ff79c6;
+  --prism-punctuation: #f8f8f2;
+  --prism-decorator: #50fa7b;
+  --prism-regex: #f1fa8c;
+  --prism-json-property: #8be9fd;
+  --prism-line-number: #6272a4;
+  --prism-line-number-gutter: #44475a;
+  --prism-line-highlight-background: #44475a;
+  --prism-selection-background: #44475a;
+}

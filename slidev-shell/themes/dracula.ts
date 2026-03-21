@@ -38,3 +38,5 @@ export const fonts = {
   sans: 'Nunito Sans',
   mono: 'JetBrains Mono',
 }
+
+export const colorSchema = 'dark'
