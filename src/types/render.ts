@@ -74,4 +74,6 @@ export interface RendererThemeConfig {
   diagramStyle?: 'normal' | 'handDrawn';
   /** External font stylesheet URL (e.g. Google Fonts) to inject into render worker */
   fontUrl?: string;
+  /** Theme color scheme — drives Mermaid dark/light theme selection */
+  colorSchema?: 'light' | 'dark' | 'both';
 }

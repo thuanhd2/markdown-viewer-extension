@@ -248,7 +248,7 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
     const nonce = window.VSCODE_NONCE;
 
     // Cache theme bundles for reuse between getThemeCode and onThemeReady
-    let themeBundles: Record<string, { code: string; fonts: Record<string, string>; fontUrl?: string }> | null = null;
+    let themeBundles: Record<string, { code: string; fonts: Record<string, string>; fontUrl?: string; colorSchema?: string }> | null = null;
     async function fetchBundles() {
       if (!themeBundles) {
         const resp = await fetch(`${baseUri}/slidev-theme-bundles.json`);
@@ -275,6 +275,7 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
             ...platform.renderer.getThemeConfig(),
             fontFamily: entry.fonts.sans || entry.fonts.serif || undefined,
             fontUrl: entry.fontUrl,
+            colorSchema: entry.colorSchema as 'light' | 'dark' | 'both' | undefined,
           });
         }
       },

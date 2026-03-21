@@ -40,6 +40,21 @@ function readThemeFonts(themeName: string): Record<string, string> {
   return {}
 }
 
+/** Read colorSchema from theme package.json */
+function readColorSchema(themeName: string): string | undefined {
+  const candidates = [
+    resolve(`./node_modules/@slidev/theme-${themeName}/package.json`),
+    resolve(`./node_modules/slidev-theme-${themeName}/package.json`),
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const pkg = JSON.parse(fs.readFileSync(p, 'utf8'))
+      return pkg.slidev?.colorSchema
+    }
+  }
+  return undefined
+}
+
 /** Build Google Fonts URL from theme font declarations, skipping local fonts */
 function buildGoogleFontsUrl(fonts: Record<string, string>): string | undefined {
   const local = new Set(
@@ -82,8 +97,10 @@ function buildFontFamily(themeFonts: Record<string, string>): Record<string, str
 
 // All themes to build
 const themes = [
+  // Official themes
   'default', 'seriph', 'apple-basic', 'bricks',
-  'dracula', 'purplin', 'academic', 'geist',
+  // Community themes
+  'dracula', 'purplin', 'academic', 'geist', 'unicorn',
 ]
 
 const outDir = resolve('../dist/themes')
@@ -210,13 +227,14 @@ async function main() {
     await buildTheme(name)
   }
 
-  // Generate manifest with fonts info and fontUrl
-  const manifest: Record<string, { file: string; fonts: Record<string, string>; fontUrl?: string }> = {}
+  // Generate manifest with fonts info, fontUrl, and colorSchema
+  const manifest: Record<string, { file: string; fonts: Record<string, string>; fontUrl?: string; colorSchema?: string }> = {}
   for (const name of themes) {
     const file = path.join(outDir, `theme-${name}.js`)
     if (fs.existsSync(file)) {
       const fonts = readThemeFonts(name)
-      manifest[name] = { file: `theme-${name}.js`, fonts, fontUrl: buildGoogleFontsUrl(fonts) }
+      const colorSchema = readColorSchema(name)
+      manifest[name] = { file: `theme-${name}.js`, fonts, fontUrl: buildGoogleFontsUrl(fonts), colorSchema }
     }
   }
   fs.writeFileSync(

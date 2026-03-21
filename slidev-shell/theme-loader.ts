@@ -74,25 +74,28 @@ function _applyTheme(): ThemeModule | undefined {
   let css = theme.css || ''
 
   // Inject :root font-family overrides so the shell's UnoCSS utilities
-  // (font-sans, font-serif, font-mono) and body text use theme fonts
+  // (font-sans, font-serif, font-mono) and body text use theme fonts.
+  // Fallback stacks match the official Slidev defaults used in build-themes.ts.
   if (theme.fonts) {
+    const FALLBACK_SANS = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"'
+    const FALLBACK_SERIF = 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif'
+    const FALLBACK_MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+
+    const quote = (s: string) => s.split(',').map(f => f.trim().includes(' ') && !f.trim().startsWith('"') ? `"${f.trim()}"` : f.trim()).join(', ')
     const decls: string[] = []
     const { sans, serif, mono } = theme.fonts
     if (sans) {
-      const families = sans.split(',').map(f => f.trim().includes(' ') && !f.trim().startsWith('"') ? `"${f.trim()}"` : f.trim()).join(', ')
-      decls.push(`font-family: ${families}, ui-sans-serif, system-ui, sans-serif`)
+      decls.push(`font-family: ${quote(sans)}, ${FALLBACK_SANS}`)
     }
     if (decls.length) {
       css += `\n:root, .slidev-layout { ${decls.join('; ')} }`
     }
     // Override utility classes for serif/mono when theme specifies them
     if (serif) {
-      const families = serif.split(',').map(f => f.trim().includes(' ') && !f.trim().startsWith('"') ? `"${f.trim()}"` : f.trim()).join(', ')
-      css += `\n.font-serif, .slidev-layout h1, .slidev-layout h2, .slidev-layout h3 { font-family: ${families}, ui-serif, Georgia, serif }`
+      css += `\n.font-serif, .slidev-layout h1, .slidev-layout h2, .slidev-layout h3 { font-family: ${quote(serif)}, ${FALLBACK_SERIF} }`
     }
     if (mono) {
-      const families = mono.split(',').map(f => f.trim().includes(' ') && !f.trim().startsWith('"') ? `"${f.trim()}"` : f.trim()).join(', ')
-      css += `\n.font-mono, code, pre { font-family: ${families}, ui-monospace, monospace }`
+      css += `\n.font-mono, code, pre { font-family: ${quote(mono)}, ${FALLBACK_MONO} }`
     }
   }
 

@@ -330,7 +330,7 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
     }
 
     // Cache theme bundles for reuse
-    let themeBundles: Record<string, { code: string; fonts: Record<string, string>; fontUrl?: string }> | null = null;
+    let themeBundles: Record<string, { code: string; fonts: Record<string, string>; fontUrl?: string; colorSchema?: string }> | null = null;
     async function fetchBundles() {
       if (!themeBundles) {
         const json = await platform.resource.fetch('slidev-theme-bundles.json');
@@ -357,6 +357,7 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
             ...platform.renderer.getThemeConfig(),
             fontFamily: entry.fonts.sans || entry.fonts.serif || undefined,
             fontUrl: entry.fontUrl,
+            colorSchema: entry.colorSchema as 'light' | 'dark' | 'both' | undefined,
           });
         }
       },

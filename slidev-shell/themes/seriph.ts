@@ -29,7 +29,7 @@ export const layouts: Record<string, Component> = {
 export { css }
 
 export const fonts = {
-  mono: 'Fira Code',
-  sans: 'Avenir Next,Noto Sans',
-  local: 'Avenir Next',
+  sans: 'PT Serif',
+  serif: 'PT Serif',
+  mono: 'PT Mono',
 }

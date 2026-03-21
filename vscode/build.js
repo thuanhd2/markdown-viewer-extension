@@ -277,7 +277,7 @@ function copyAssets() {
       for (const [name, entry] of Object.entries(manifest)) {
         const themeFile = path.join(themesDir, /** @type {string} */ (entry.file));
         if (fs.existsSync(themeFile)) {
-          bundles[name] = { code: fs.readFileSync(themeFile, 'utf8'), fonts: entry.fonts || {}, fontUrl: entry.fontUrl };
+          bundles[name] = { code: fs.readFileSync(themeFile, 'utf8'), fonts: entry.fonts || {}, fontUrl: entry.fontUrl, colorSchema: entry.colorSchema };
         }
       }
       fs.writeFileSync(path.join(outdir, 'webview', 'slidev-theme-bundles.json'), JSON.stringify(bundles));

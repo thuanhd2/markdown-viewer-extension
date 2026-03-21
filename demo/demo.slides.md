@@ -1,5 +1,5 @@
 ---
-theme: bricks
+theme: dracula
 title: Slidev Feature Showcase
 transition: slide-left
 aspectRatio: 16/9

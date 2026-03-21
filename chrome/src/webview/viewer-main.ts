@@ -200,6 +200,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
               ...platform.renderer.getThemeConfig(),
               fontFamily: entry.fonts.sans || entry.fonts.serif || undefined,
               fontUrl: entry.fontUrl,
+              colorSchema: entry.colorSchema as 'light' | 'dark' | 'both' | undefined,
             });
           }
         } catch { /* ignore */ }
