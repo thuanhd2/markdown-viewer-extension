@@ -7,20 +7,19 @@
  */
 
 import type { MessageTransport, TransportMeta, Unsubscribe } from '../../../src/messaging/transports/transport';
-
-// Firefox WebExtension API types
-declare const browser: typeof chrome;
+import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
 type IncomingHandler = (message: unknown, meta?: TransportMeta) => void;
 
 export class ManualDispatchTransport implements MessageTransport {
   private handler: IncomingHandler | null = null;
+  private webExtensionApi = getWebExtensionApi();
 
   async send(message: unknown): Promise<unknown> {
     // Send response via browser.runtime.sendMessage
     // This is typically used for sending responses back
     try {
-      return await browser.runtime.sendMessage(message);
+      return await this.webExtensionApi.runtime.sendMessage(message);
     } catch {
       // Ignore send errors - response might be sent via meta.respond
       return undefined;

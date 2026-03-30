@@ -117,8 +117,9 @@ async function buildMainBundle() {
     treeShaking: true,
     define: {
       'process.env.NODE_ENV': '"production"',
-      'global': 'globalThis',
-      'PLATFORM': '"mobile"'
+      'MV_PLATFORM': '"mobile"',
+      'MV_RUNTIME': '"webview"',
+      'global': 'globalThis'
     },
     inject: ['./scripts/buffer-shim.js'],
     loader: {
@@ -153,8 +154,9 @@ async function buildIframeRenderWorkerBundle() {
     treeShaking: true,
     define: {
       'process.env.NODE_ENV': '"production"',
-      'global': 'globalThis',
-      'PLATFORM': '"mobile"'
+      'MV_PLATFORM': '"mobile"',
+      'MV_RUNTIME': '"worker"',
+      'global': 'globalThis'
     },
     inject: ['./scripts/buffer-shim.js'],
     loader: {

@@ -17,13 +17,11 @@ import type { PlatformBridgeAPI } from '../../../src/types/index';
 
 import { ServiceChannel } from '../../../src/messaging/channels/service-channel';
 import { BrowserRuntimeTransport } from '../../../chrome/src/transports/chrome-runtime-transport';
+import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
 import { BackgroundRenderHost } from './hosts/background-render-host';
 
 import { CacheService, StorageService, FileService, FileStateService, RendererService, SettingsService, createSettingsService } from '../../../src/services';
-
-// Firefox WebExtension API types
-declare const browser: typeof chrome;
 
 // ============================================================================
 // Type Definitions
@@ -45,6 +43,8 @@ const backgroundServiceChannel = new ServiceChannel(new BrowserRuntimeTransport(
   source: 'firefox-content',
   timeoutMs: 30000,
 });
+
+const webExtensionApi = getWebExtensionApi();
 
 // Unified cache service (same as Chrome/Mobile)
 const cacheService = new CacheService(backgroundServiceChannel);
@@ -133,7 +133,7 @@ const firefoxDocumentService = new FirefoxDocumentService();
  */
 class FirefoxResourceService {
   getURL(path: string): string {
-    return browser.runtime.getURL(path);
+    return webExtensionApi.runtime.getURL(path);
   }
 
   /**
@@ -168,7 +168,7 @@ class FirefoxMessageService {
   async send<T = unknown>(message: unknown): Promise<T> {
     try {
       // Send message directly - Firefox browser.runtime.sendMessage returns Promise
-      const response = await browser.runtime.sendMessage(message);
+      const response = await webExtensionApi.runtime.sendMessage(message);
       return response as T;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -219,7 +219,7 @@ class FirefoxI18nService extends BaseI18nService {
 
   async fetchLocaleData(locale: string): Promise<LocaleMessages | null> {
     try {
-      const url = browser.runtime.getURL(`_locales/${locale}/messages.json`);
+      const url = webExtensionApi.runtime.getURL(`_locales/${locale}/messages.json`);
       const response = await fetch(url);
       if (response.ok) {
         return await response.json();
@@ -232,14 +232,14 @@ class FirefoxI18nService extends BaseI18nService {
   }
 
   getUILanguage(): string {
-    return browser.i18n.getUILanguage();
+    return webExtensionApi.i18n?.getUILanguage() || navigator.language || FALLBACK_LOCALE;
   }
 
   /**
    * Get message using browser.i18n API (native Firefox i18n)
    */
   getNativeMessage(key: string, substitutions?: string | string[]): string {
-    return browser.i18n.getMessage(key, substitutions) || key;
+    return webExtensionApi.i18n?.getMessage(key, substitutions) || key;
   }
 }
 
@@ -320,7 +320,7 @@ class FirefoxPlatformAPI {
       const url = URL.createObjectURL(blob);
 
       // Check if downloads permission is available (it's optional)
-      const hasDownloadsPermission = await browser.permissions.contains({ permissions: ['downloads'] });
+      const hasDownloadsPermission = await webExtensionApi.permissions?.contains({ permissions: ['downloads'] }) || false;
       if (!hasDownloadsPermission) {
         // Fallback: use <a> element download
         const a = document.createElement('a');
@@ -336,12 +336,27 @@ class FirefoxPlatformAPI {
         return;
       }
 
-      // Use browser.downloads API
-      await browser.downloads.download({
-        url,
-        filename,
-        saveAs: true,
-      });
+      // Use browser.downloads API when available
+      if (webExtensionApi.downloads?.download) {
+        await webExtensionApi.downloads.download({
+          url,
+          filename,
+          saveAs: true,
+        });
+      } else {
+        // Safety fallback for environments without downloads API
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        return;
+      }
 
       // Clean up blob URL after a delay
       setTimeout(() => URL.revokeObjectURL(url), 60000);

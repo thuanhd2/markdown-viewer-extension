@@ -5,15 +5,13 @@
  * Both Chrome and Firefox extensions use this module with platform-specific renderers.
  */
 
-// Firefox WebExtension API declaration (undefined in Chrome)
-declare const browser: typeof chrome | undefined;
-
 import DocxExporter from '../../../src/exporters/docx-exporter';
 import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localization';
 import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
 import { wrapFileContent } from '../../../src/utils/file-wrapper';
 import { initSlidevViewer } from '../../../src/slidev/slidev-viewer';
+import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
 import type { PluginRenderer, RendererThemeConfig, PlatformAPI } from '../../../src/types/index';
 
@@ -100,6 +98,7 @@ interface IncomingBroadcastMessage {
  */
 export async function initializeViewerMain(options: ViewerMainOptions): Promise<void> {
   const { platform, pluginRenderer, themeConfigRenderer } = options;
+  const webExtensionApi = getWebExtensionApi();
 
   const translate = (key: string, substitutions?: string | string[]): string =>
     Localization.translate(key, substitutions);
@@ -151,12 +150,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     }
     
     // Create new favicon link
-    // Use browser API for Firefox, chrome API for Chrome
-    const runtime = typeof browser !== 'undefined' ? browser : chrome;
     const link = document.createElement('link');
     link.rel = 'icon';
     link.type = 'image/png';
-    link.href = runtime.runtime.getURL('icons/icon16.png');
+    link.href = webExtensionApi.runtime.getURL('icons/icon16.png');
     document.head.appendChild(link);
   }
   setFavicon();
@@ -170,8 +167,6 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
   // ── Slidev mode: .slides.md files render as presentations ────────────
   if (/\.slides\.md$/i.test(currentUrl)) {
-    const runtime = typeof browser !== 'undefined' ? browser : chrome;
-
     // Remove preload style that hides page content (opacity: 0 !important)
     document.getElementById('markdown-viewer-preload')?.remove();
 
@@ -191,7 +186,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         })),
       onThemeReady: async (name) => {
         try {
-          const resp = await fetch(runtime.runtime.getURL('slidev-shell/themes/manifest.json'));
+          const resp = await fetch(webExtensionApi.runtime.getURL('slidev-shell/themes/manifest.json'));
           if (!resp.ok) return;
           const manifest = await resp.json();
           const entry = manifest[name];
@@ -206,9 +201,9 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         } catch { /* ignore */ }
       },
       getShellSource: async () =>
-        runtime.runtime.getURL('slidev-shell/index.html'),
+        webExtensionApi.runtime.getURL('slidev-shell/index.html'),
       getThemeUrl: async (name) =>
-        runtime.runtime.getURL(`slidev-shell/themes/theme-${name}.js`),
+        webExtensionApi.runtime.getURL(`slidev-shell/themes/theme-${name}.js`),
       onParsed: ({ title }) => {
         document.title = title;
         saveToHistory(platform);

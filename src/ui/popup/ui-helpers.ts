@@ -2,8 +2,8 @@
  * UI helpers for popup
  */
 
+import { isPlatform } from '../../utils/platform-info';
 import { translate } from './i18n-helpers';
-import { isFirefoxPopup } from './platform-detect';
 
 /**
  * Show a confirmation modal
@@ -120,7 +120,7 @@ export async function checkFileAccess(): Promise<void> {
 
   try {
     // Firefox allows file:// access by default with <all_urls> permission
-    if (isFirefoxPopup()) {
+    if (isPlatform('firefox')) {
       warningSection.style.display = 'none';
       return;
     }

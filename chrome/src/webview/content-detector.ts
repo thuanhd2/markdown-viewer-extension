@@ -2,8 +2,7 @@
 // This script runs on all pages to check if they are Markdown files
 // Supports both Chrome (chrome.*) and Firefox (browser.*) APIs
 
-// Use browser API if available (Firefox), otherwise use chrome API
-const runtime = typeof browser !== 'undefined' ? browser : chrome;
+import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
 import {
   DOT_EXTENSION_TO_FILE_TYPE,
@@ -11,6 +10,8 @@ import {
   getDefaultSupportedExtensions,
   type SupportedExtensions,
 } from '../../../src/types/formats';
+
+const webExtensionApi = getWebExtensionApi();
 
 /**
  * Map file extension to fileType
@@ -120,7 +121,7 @@ function injectContentScript(): void {
   };
 
   // Use Promise-based API for Firefox, callback for Chrome
-  const sendPromise = runtime.runtime.sendMessage(request);
+  const sendPromise = webExtensionApi.runtime.sendMessage(request);
   if (sendPromise && typeof sendPromise.then === 'function') {
     sendPromise.catch(() => {
       // Ignore errors - fire and forget
@@ -163,7 +164,7 @@ async function detectAndInject(): Promise<void> {
   }
 
   try {
-    const result = await runtime.storage.local.get(['markdownViewerSettings']);
+    const result = await webExtensionApi.storage.local.get(['markdownViewerSettings']);
     const settings = result.markdownViewerSettings as { supportedExtensions?: SupportedExtensions } | undefined;
     
     // Default settings if not configured

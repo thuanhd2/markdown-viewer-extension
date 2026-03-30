@@ -78,6 +78,8 @@ async function buildHost() {
     minify: !process.argv.includes('--dev'),
     define: {
       'process.env.NODE_ENV': process.argv.includes('--dev') ? '"development"' : '"production"',
+      'MV_PLATFORM': '"obsidian"',
+      'MV_RUNTIME': '"shared"',
       'global': 'globalThis',
     },
     inject: [path.join(projectRoot, 'scripts', 'buffer-shim.js')],
@@ -110,8 +112,9 @@ async function buildIframeRenderWorker() {
     minify: !process.argv.includes('--dev'),
     define: {
       'process.env.NODE_ENV': process.argv.includes('--dev') ? '"development"' : '"production"',
+      'MV_PLATFORM': '"obsidian"',
+      'MV_RUNTIME': '"worker"',
       'global': 'globalThis',
-      'PLATFORM': '"obsidian"',
     },
     inject: [path.join(projectRoot, 'scripts', 'buffer-shim.js')],
     loader: {

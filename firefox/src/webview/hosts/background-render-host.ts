@@ -6,9 +6,7 @@
  */
 
 import type { RenderHost } from '../../../../src/renderers/host/render-host';
-
-// Firefox WebExtension API types
-declare const browser: typeof chrome;
+import { getWebExtensionApi } from '../../../../src/utils/platform-info';
 
 type ResponseEnvelope = {
   type: 'RESPONSE';
@@ -27,6 +25,7 @@ function isResponseEnvelope(message: unknown): message is ResponseEnvelope {
 export class BackgroundRenderHost implements RenderHost {
   private source: string;
   private requestCounter = 0;
+  private webExtensionApi = getWebExtensionApi();
 
   constructor(source: string) {
     this.source = source;
@@ -59,7 +58,7 @@ export class BackgroundRenderHost implements RenderHost {
         reject(new Error(`Render request timeout after ${timeoutMs}ms`));
       }, timeoutMs);
 
-      browser.runtime.sendMessage(request).then((response: unknown) => {
+      this.webExtensionApi.runtime.sendMessage(request).then((response: unknown) => {
         clearTimeout(timer);
         
         if (isResponseEnvelope(response)) {

@@ -69,6 +69,8 @@ export const createBuildConfig = () => {
     // Define globals
     define: {
       'process.env.NODE_ENV': '"production"',
+      'MV_PLATFORM': '"chrome"',
+      'MV_RUNTIME': '"shared"',
       'global': 'globalThis', // Polyfill for global
     },
     // Inject Node.js polyfills for browser environment

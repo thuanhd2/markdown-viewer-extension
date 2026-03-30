@@ -78,6 +78,8 @@ export const createBuildConfig = () => {
     ],
     define: {
       'process.env.NODE_ENV': '"production"',
+      'MV_PLATFORM': '"firefox"',
+      'MV_RUNTIME': '"shared"',
       'global': 'globalThis',
     },
     inject: ['./scripts/buffer-shim.js'],

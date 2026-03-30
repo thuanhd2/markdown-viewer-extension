@@ -6,10 +6,9 @@
  */
 
 import type { MessageTransport, TransportMeta, Unsubscribe } from '../../../src/messaging/transports/transport';
+import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
-// Use browser API if available (Firefox), otherwise use chrome API
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const runtime = typeof (globalThis as any).browser !== 'undefined' ? (globalThis as any).browser : chrome;
+const runtimeApi = getWebExtensionApi();
 
 export interface BrowserRuntimeTransportOptions {
   /**
@@ -41,7 +40,7 @@ export class ChromeRuntimeTransport implements MessageTransport {
     // Firefox browser.runtime.sendMessage returns a Promise
     // Chrome also supports Promise in modern versions
     try {
-      return await runtime.runtime.sendMessage(message);
+      return await runtimeApi.runtime.sendMessage(message);
     } catch (error) {
       // Fallback for older Chrome callback style
       return new Promise((resolve, reject) => {
@@ -69,11 +68,11 @@ export class ChromeRuntimeTransport implements MessageTransport {
       return this.willRespond;
     };
 
-    runtime.runtime.onMessage.addListener(this.listener);
+    runtimeApi.runtime.onMessage.addListener(this.listener);
 
     return () => {
       if (this.listener) {
-        runtime.runtime.onMessage.removeListener(this.listener);
+        runtimeApi.runtime.onMessage.removeListener(this.listener);
         this.listener = undefined;
       }
     };

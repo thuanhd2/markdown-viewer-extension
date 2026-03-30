@@ -85,7 +85,9 @@ async function buildExtensionHost() {
     sourcemap: false,
     minify: true,
     define: {
-      'process.env.NODE_ENV': '"production"'
+      'process.env.NODE_ENV': '"production"',
+      'MV_PLATFORM': '"vscode"',
+      'MV_RUNTIME': '"background"'
     }
   });
 
@@ -110,6 +112,8 @@ async function buildWebview() {
     minify: true,
     define: {
       'process.env.NODE_ENV': '"production"',
+      'MV_PLATFORM': '"vscode"',
+      'MV_RUNTIME': '"webview"',
       'global': 'globalThis'
     },
     inject: ['./scripts/buffer-shim.js'],
@@ -137,8 +141,9 @@ async function buildWebview() {
     minify: true,
     define: {
       'process.env.NODE_ENV': '"production"',
-      'global': 'globalThis',
-      'PLATFORM': '"vscode"'
+      'MV_PLATFORM': '"vscode"',
+      'MV_RUNTIME': '"worker"',
+      'global': 'globalThis'
     },
     inject: ['./scripts/buffer-shim.js'],
     loader: {

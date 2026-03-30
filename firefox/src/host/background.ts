@@ -5,8 +5,10 @@
  * so we can render diagrams directly here (similar to Chrome's Offscreen API).
  */
 
+import { getWebExtensionApi } from '../../../src/utils/platform-info';
+
 // Firefox WebExtension API types
-declare const browser: typeof chrome & {
+type FirefoxBrowserApi = typeof chrome & {
   menus: {
     create: (createProperties: {
       id?: string;
@@ -21,6 +23,8 @@ declare const browser: typeof chrome & {
     };
   };
 };
+
+const browser = getWebExtensionApi() as unknown as FirefoxBrowserApi;
 
 import { DirectResourceService } from '../../../src/services';
 

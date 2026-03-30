@@ -2,12 +2,9 @@
  * History tab management for popup
  */
 
-// Firefox WebExtension API declaration (undefined in Chrome)
-declare const browser: typeof chrome | undefined;
-
+import { isPlatform } from '../../utils/platform-info';
 import { translate, getUiLocale } from './i18n-helpers';
 import { storageGet, storageSet } from './storage-helper';
-import { isFirefoxPopup } from './platform-detect';
 
 /**
  * History item interface
@@ -133,7 +130,7 @@ export function createHistoryTabManager({ showMessage, showConfirm }: HistoryTab
           const isFileUrl = item.url.startsWith('file://');
           
           // Firefox cannot open file:// URLs from extension context due to security restrictions
-          if (isFirefoxPopup() && isFileUrl) {
+          if (isPlatform('firefox') && isFileUrl) {
             // Copy URL to clipboard and show message
             await navigator.clipboard.writeText(item.url);
             showMessage(translate('file_url_copied') || 'URL copied. Paste in address bar to open.', 'info');
