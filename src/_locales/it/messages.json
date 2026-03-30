@@ -511,6 +511,10 @@
     "message": "Diagrammi PlantUML (.plantuml, .puml)",
     "description": "Checkbox label for enabling PlantUML file support"
   },
+  "settings_support_slidev": {
+    "message": "Slidev slides (.slides.md)",
+    "description": "Checkbox label for enabling Slidev file support"
+  },
   "settings_support_vega": {
     "message": "Grafici Vega (.vega)",
     "description": "Checkbox label for Vega format support"

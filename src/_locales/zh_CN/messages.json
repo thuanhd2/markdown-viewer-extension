@@ -511,6 +511,10 @@
     "message": "PlantUML 图表 (.plantuml, .puml)",
     "description": "Checkbox label for enabling PlantUML file support"
   },
+  "settings_support_slidev": {
+    "message": "Slidev slides (.slides.md)",
+    "description": "Checkbox label for enabling Slidev file support"
+  },
   "settings_support_vega": {
     "message": "Vega 图表 (.vega)",
     "description": "启用 Vega 文件支持的复选框标签"
