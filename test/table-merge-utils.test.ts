@@ -1373,6 +1373,220 @@ describe('Table Merge Utils', () => {
     
   });
   
+  describe('parent column boundary constraint', () => {
+
+    it('should not merge child column across parent column boundary (subtotal row)', () => {
+      // Simulates: subtotal row has col1 non-empty, col2 empty
+      // Col2 merge should NOT cross the subtotal boundary
+      const rows = [
+        ['L0-A', 'L1-A', 'L2-a', '3.0'],
+        ['',     '',     'L2-b', '1.5'],
+        ['',     '',     'L2-c', '2.5'],
+        ['',     'Sub',  '',     '14.0'],
+      ];
+
+      const { mergeInfo, analysis } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      assert.ok(analysis?.shouldMerge);
+
+      // Col 0: rows 0-2 merge (rowspan=3), row 3 empty but 'Sub' in col1 resets col0 anchor
+      // The key assertion: row 3 col 2 must NOT merge with row 2 col 2
+      assert.strictEqual(mergeInfo[3][2].shouldRender, true);
+      assert.strictEqual(mergeInfo[3][2].rowspan, 1);
+    });
+
+    it('should not merge col2 across col1 boundary even when col0 is empty', () => {
+      const rows = [
+        ['A', 'B1', 'C1', '1'],
+        ['',  '',   'C2', '2'],
+        ['',  'B2', '',   '3'],  // col1 has new value, col2 empty should NOT merge with C2
+        ['',  '',   'C3', '4'],
+      ];
+
+      const { mergeInfo } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      // Row 2, col 2: empty but col1 has new value 'B2', so no merge upward
+      assert.strictEqual(mergeInfo[2][2].shouldRender, true);
+      assert.strictEqual(mergeInfo[2][2].rowspan, 1);
+    });
+
+    it('should allow merge within same parent boundary', () => {
+      const rows = [
+        ['A', 'B1', 'C1', '1'],
+        ['',  '',   '',   '2'],  // all empty in tree cols, merge normally
+        ['',  '',   '',   '3'],
+      ];
+
+      const { mergeInfo } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      // Col 2: rows 1,2 should merge into row 0 (parent col1 stays empty)
+      assert.strictEqual(mergeInfo[0][2].rowspan, 3);
+      assert.strictEqual(mergeInfo[1][2].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][2].shouldRender, false);
+    });
+
+    it('should handle subtotal pattern with multiple groups', () => {
+      // Two groups each ending with subtotal
+      const rows = [
+        ['L0-A', 'L1-a', 'L2-x', '3.0'],
+        ['',     '',     'L2-y', '2.5'],
+        ['',     'L1-b', 'L2-z', '1.5'],
+        ['',     '',     'L2-w', '1.5'],
+        ['',     'Sub',  '',     '8.5'],
+        ['L0-B', 'L1-c', 'L2-m', '2.5'],
+        ['',     '',     'L2-n', '1.5'],
+        ['',     'Sub',  '',     '4.0'],
+      ];
+
+      const { mergeInfo } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      // Row 4 (Sub): col2 empty should NOT merge with row 3
+      assert.strictEqual(mergeInfo[4][2].shouldRender, true);
+
+      // Row 7 (Sub): col2 empty should NOT merge with row 6
+      assert.strictEqual(mergeInfo[7][2].shouldRender, true);
+
+      // But within groups, merging should work:
+      // Col1 rows 0-1: L1-a spans 2 rows
+      assert.strictEqual(mergeInfo[0][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][1].shouldRender, false);
+
+      // Col1 rows 2-3: L1-b spans 2 rows
+      assert.strictEqual(mergeInfo[2][1].rowspan, 2);
+      assert.strictEqual(mergeInfo[3][1].shouldRender, false);
+    });
+
+    it('should constrain 5-column tree with subtotal at each level', () => {
+      // 5 columns: L0 | L1 | L2 | L3 | data
+      // Need enough valid rows for treeScore >= 0.8 (Sub/Total rows are invalid due to gap pattern)
+      const rows = [
+        ['L0-A', 'L1-a', 'L2-p', 'L3-1', '3.0'],  // 0
+        ['',     '',     '',     'L3-2', '1.5'],  // 1
+        ['',     '',     'L2-q', 'L3-3', '1.0'],  // 2
+        ['',     'L1-b', 'L2-r', 'L3-4', '1.5'],  // 3
+        ['',     '',     'L2-s', 'L3-5', '1.5'],  // 4
+        ['',     '',     '',     'L3-6', '0.5'],  // 5
+        ['',     '',     '',     'L3-7', '0.5'],  // 6
+        ['',     'Sub',  '',     '',     '9.5'],  // 7
+        ['L0-B', 'L1-c', 'L2-t', 'L3-8', '2.5'],  // 8
+        ['',     '',     'L2-u', 'L3-9', '1.5'],  // 9
+        ['',     'L1-d', 'L2-v', 'L3-10', '2.5'], // 10
+        ['',     '',     'L2-w', 'L3-11', '1.5'], // 11
+        ['',     '',     'L2-x', 'L3-12', '0.5'], // 12
+        ['',     'Sub',  '',     '',     '8.5'],  // 13
+        ['Total', '',    '',     '',     '18.0'], // 14
+      ];
+
+      const { mergeInfo } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      // --- Sub rows (7, 13): col2, col3 must NOT merge upward ---
+      assert.strictEqual(mergeInfo[7][2].shouldRender, true, 'row7 col2 should not merge');
+      assert.strictEqual(mergeInfo[7][3].shouldRender, true, 'row7 col3 should not merge');
+      assert.strictEqual(mergeInfo[13][2].shouldRender, true, 'row13 col2 should not merge');
+      assert.strictEqual(mergeInfo[13][3].shouldRender, true, 'row13 col3 should not merge');
+
+      // --- Total row (14): col1,col2,col3 must NOT merge upward ---
+      assert.strictEqual(mergeInfo[14][1].shouldRender, true, 'Total col1');
+      assert.strictEqual(mergeInfo[14][2].shouldRender, true, 'Total col2');
+      assert.strictEqual(mergeInfo[14][3].shouldRender, true, 'Total col3');
+
+      // --- Within groups, merging should work normally ---
+      // Col 1: 'L1-a' spans rows 0-2
+      assert.strictEqual(mergeInfo[0][1].rowspan, 3);
+      assert.strictEqual(mergeInfo[1][1].shouldRender, false);
+      assert.strictEqual(mergeInfo[2][1].shouldRender, false);
+
+      // Col 1: 'L1-b' spans rows 3-6
+      assert.strictEqual(mergeInfo[3][1].rowspan, 4);
+
+      // Col 2: 'L2-p' spans rows 0-1
+      assert.strictEqual(mergeInfo[0][2].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][2].shouldRender, false);
+
+      // Col 2: 'L2-s' spans rows 4-6 (within L1-b group)
+      assert.strictEqual(mergeInfo[4][2].rowspan, 3);
+      assert.strictEqual(mergeInfo[5][2].shouldRender, false);
+      assert.strictEqual(mergeInfo[6][2].shouldRender, false);
+    });
+
+    it('should constrain 6-column deep tree across all levels', () => {
+      // 6 columns: L0 | L1 | L2 | L3 | L4 | data
+      const rows = [
+        ['A', 'A1', 'A1a', 'A1a-i',  'X1', '10'],
+        ['',  '',   '',    '',        'X2', '20'],
+        ['',  '',   '',    'A1a-ii', 'X3', '30'],
+        ['',  '',   'A1b', 'A1b-i',  'X4', '40'],  // L2 changes → L3,L4 reset
+        ['',  '',   '',    '',        'X5', '50'],
+        ['',  'A2', 'A2a', 'A2a-i',  'X6', '60'],  // L1 changes → L2,L3,L4 all reset
+        ['',  '',   '',    '',        'X7', '70'],
+      ];
+
+      const { mergeInfo } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      // L3 col3: 'A1a-i' rows 0-1, reset at row 2 ('A1a-ii')
+      assert.strictEqual(mergeInfo[0][3].rowspan, 2);
+      assert.strictEqual(mergeInfo[1][3].shouldRender, false);
+
+      // L2 col2: 'A1a' rows 0-2, reset at row 3 ('A1b')
+      assert.strictEqual(mergeInfo[0][2].rowspan, 3);
+      assert.strictEqual(mergeInfo[2][2].shouldRender, false);
+
+      // Row 3: L2='A1b' → L3='A1b-i' spans rows 3-4
+      assert.strictEqual(mergeInfo[3][3].rowspan, 2);
+      assert.strictEqual(mergeInfo[4][3].shouldRender, false);
+
+      // Row 5: L1='A2' → all child cols reset
+      // L2 col2: 'A2a' spans rows 5-6
+      assert.strictEqual(mergeInfo[5][2].rowspan, 2);
+      assert.strictEqual(mergeInfo[6][2].shouldRender, false);
+
+      // L3 col3: 'A2a-i' spans rows 5-6
+      assert.strictEqual(mergeInfo[5][3].rowspan, 2);
+      assert.strictEqual(mergeInfo[6][3].shouldRender, false);
+    });
+
+    it('should handle full subtotal + total pattern', () => {
+      // 5 columns with two groups, each ending with Sub, then Total
+      const rows = [
+        ['L0-A', 'L1-a', 'L2-p', 'L3-1', '3.0'],
+        ['',     '',     'L2-q', 'L3-2', '1.5'],
+        ['',     '',     'L2-r', 'L3-3', '2.5'],
+        ['',     '',     'L2-s', 'L3-4', '1.0'],
+        ['',     'L1-b', 'L2-t', 'L3-5', '1.5'],
+        ['',     '',     'L2-u', 'L3-6', '1.5'],
+        ['',     '',     'L2-v', 'L3-7', '0.5'],
+        ['',     '',     'L2-w', 'L3-8', '0.5'],
+        ['',     '',     'L2-x', 'L3-9', '0.5'],
+        ['',     'Sub',  '',     '',      '14.0'],
+        ['L0-B', 'L1-c', 'L2-y', 'L3-10', '2.5'],
+        ['',     '',     'L2-z', 'L3-11', '1.5'],
+        ['',     'L1-d', 'L2-α', 'L3-12', '2.5'],
+        ['',     '',     'L2-β', 'L3-13', '1.5'],
+        ['',     'Sub',  '',     '',      '8.0'],
+        ['Total', '',    '',     '',      '22.0'],
+      ];
+
+      const { mergeInfo } = calculateMergeInfoFromStringsWithAnalysis(rows);
+
+      // Sub rows (9, 14): col2 and col3 must NOT merge upward
+      assert.strictEqual(mergeInfo[9][2].shouldRender, true, '1st Sub col2');
+      assert.strictEqual(mergeInfo[9][3].shouldRender, true, '1st Sub col3');
+      assert.strictEqual(mergeInfo[14][2].shouldRender, true, '2nd Sub col2');
+      assert.strictEqual(mergeInfo[14][3].shouldRender, true, '2nd Sub col3');
+
+      // Total row (15): col1,col2,col3 must NOT merge upward
+      assert.strictEqual(mergeInfo[15][1].shouldRender, true, 'Total col1');
+      assert.strictEqual(mergeInfo[15][2].shouldRender, true, 'Total col2');
+      assert.strictEqual(mergeInfo[15][3].shouldRender, true, 'Total col3');
+
+      // Within groups, normal tree merge works
+      // Col1: 'L1-a' rows 0-3 (4 rows)
+      assert.strictEqual(mergeInfo[0][1].rowspan, 4);
+      // Col1: 'L1-b' rows 4-8 (5 rows)
+      assert.strictEqual(mergeInfo[4][1].rowspan, 5);
+    });
+  });
+
   describe('edge cases', () => {
     
     it('should handle leading empty cells with later non-empty anchor', () => {

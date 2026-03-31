@@ -117,7 +117,7 @@ export function calculateMergeInfo(rows: CellContent[][]): CellMergeInfo[][] {
   // Process each tree column independently
   for (const col of treeColumns) {
     if (col >= colCount) continue;
-    
+
     // Track the current "anchor" cell that empty cells merge into
     let anchorRow = -1;
 
@@ -126,6 +126,15 @@ export function calculateMergeInfo(rows: CellContent[][]): CellMergeInfo[][] {
       if (groupHeaderRows.has(row)) {
         anchorRow = -1;
         continue;
+      }
+
+      // Child column merge must not exceed any preceding column boundary
+      for (let prevCol = 0; prevCol < col; prevCol++) {
+        const prevCell = rows[row]?.[prevCol];
+        if (prevCell && !isCellEmpty(prevCell)) {
+          anchorRow = -1;
+          break;
+        }
       }
       
       const cell = rows[row]?.[col];
@@ -237,6 +246,15 @@ export function calculateMergeInfoWithAnalysis(rows: CellContent[][]): {
       if (groupHeaderRows.has(row)) {
         anchorRow = -1;
         continue;
+      }
+
+      // Child column merge must not exceed any preceding column boundary
+      for (let prevCol = 0; prevCol < col; prevCol++) {
+        const prevCell = rows[row]?.[prevCol];
+        if (prevCell && !isCellEmpty(prevCell)) {
+          anchorRow = -1;
+          break;
+        }
       }
       
       const cell = rows[row]?.[col];
