@@ -733,10 +733,13 @@ class DocxExporter {
     const depth = node.depth || 1;
     const headingStyle = this.themeStyles?.paragraphStyles?.[`heading${depth}` as keyof typeof this.themeStyles.paragraphStyles];
 
+    // Pass heading's run style (size, bold, font, color) so inline converter uses correct heading font size
+    const headingRunStyle = headingStyle?.run || {};
+
     // Convert inline nodes to support styles (bold, italic, code, etc.)
     const children = await this.inlineConverter!.convertInlineNodes(
       (node.children || []) as unknown as InlineNode[],
-      {}
+      headingRunStyle
     );
 
     const config: {
