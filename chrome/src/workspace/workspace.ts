@@ -65,7 +65,7 @@ async function readDirectory(dirHandle: FileSystemDirectoryHandle): Promise<Tree
       if (children.length > 0) {
         entries.push({ name, kind: 'directory', handle, children });
       }
-    } else if (isSupportedFile(name)) {
+    } else {
       entries.push({ name, kind: 'file', handle });
     }
   }
@@ -132,26 +132,31 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0) {
 // ─── File preview via embedded viewer ───
 async function openFile(fileHandle: FileSystemFileHandle) {
   const file = await fileHandle.getFile();
-  const text = await file.text();
 
   $previewEmpty.style.display = 'none';
   $previewFrame.style.display = 'block';
 
-  // Load a fresh viewer-embed.html in the iframe
-  $previewFrame.src = VIEWER_URL;
+  if (isSupportedFile(fileHandle.name)) {
+    // Render via viewer-embed for supported formats
+    const text = await file.text();
+    $previewFrame.src = VIEWER_URL;
 
-  // Wait for the viewer to signal it's ready, then send the content
-  const onMessage = (event: MessageEvent) => {
-    if (event.data?.type === 'VIEWER_READY' && event.source === $previewFrame.contentWindow) {
-      window.removeEventListener('message', onMessage);
-      $previewFrame.contentWindow!.postMessage({
-        type: 'RENDER_FILE',
-        content: text,
-        filename: fileHandle.name,
-      }, '*');
-    }
-  };
-  window.addEventListener('message', onMessage);
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'VIEWER_READY' && event.source === $previewFrame.contentWindow) {
+        window.removeEventListener('message', onMessage);
+        $previewFrame.contentWindow!.postMessage({
+          type: 'RENDER_FILE',
+          content: text,
+          filename: fileHandle.name,
+        }, '*');
+      }
+    };
+    window.addEventListener('message', onMessage);
+  } else {
+    // Display other files directly via blob URL
+    const url = URL.createObjectURL(file);
+    $previewFrame.src = url;
+  }
 }
 
 // ─── Open workspace ───
