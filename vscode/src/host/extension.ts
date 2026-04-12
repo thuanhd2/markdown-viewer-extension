@@ -236,9 +236,13 @@ export function activate(context: vscode.ExtensionContext) {
       if (editor && isSupportedDocument(editor.document)) {
         const panel = MarkdownPreviewPanel.currentPanel;
         if (panel) {
-          // Get initial line from saved position or current visible range
-          const initialLine = topmostLineMonitor.getLineForEditor(editor);
-          panel.setDocumentFromEditor(editor.document, initialLine);
+          // Only switch document if it's a different file.
+          // Same-document scroll sync is handled by onDidChangeTextEditorVisibleRanges.
+          // (Matches VSCode built-in markdown preview behavior)
+          if (!panel.isDocumentMatch(editor.document)) {
+            const initialLine = topmostLineMonitor.getLineForEditor(editor);
+            panel.setDocumentFromEditor(editor.document, initialLine);
+          }
         }
       }
       
@@ -249,6 +253,11 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Scroll sync: Editor → Preview (when editor visible range changes)
   // Disabled for .slides.md files — Slidev handles its own navigation
+  // Uses 50ms throttle (matching VSCode's built-in preview) to coalesce
+  // rapid visibleRanges events into a single update with the latest value.
+  let editorScrollThrottleTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingEditorScrollLine: number | undefined;
+
   context.subscriptions.push(
     vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
       if (isSupportedDocument(event.textEditor.document)) {
@@ -263,7 +272,17 @@ export function activate(context: vscode.ExtensionContext) {
           
           const panel = MarkdownPreviewPanel.currentPanel;
           if (panel && panel.isDocumentMatch(event.textEditor.document)) {
-            panel.scrollToLineFromEditor(topLine);
+            // Throttle: coalesce rapid events, only send the final value
+            pendingEditorScrollLine = topLine;
+            if (!editorScrollThrottleTimer) {
+              editorScrollThrottleTimer = setTimeout(() => {
+                editorScrollThrottleTimer = undefined;
+                if (pendingEditorScrollLine !== undefined) {
+                  panel.scrollToLineFromEditor(pendingEditorScrollLine);
+                  pendingEditorScrollLine = undefined;
+                }
+              }, 50);
+            }
           }
         }
       }
