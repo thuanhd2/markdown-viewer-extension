@@ -61,6 +61,7 @@ function onMessage(event: MessageEvent) {
   // Resolve relative images via parent workspace
   if (fileDir !== undefined) {
     resolveWorkspaceImages(fileDir);
+    setupWorkspaceFileReader();
   }
 }
 
@@ -115,6 +116,34 @@ function resolveWorkspaceImages(fileDir: string) {
   for (const img of document.querySelectorAll<HTMLImageElement>('img')) {
     requestImage(img);
   }
+}
+
+// ─── Workspace file reader (for readRelativeFile in workspace mode) ───
+function setupWorkspaceFileReader() {
+  const documentService = platform.document as import('../webview/api-impl').ChromeDocumentService;
+  let idCounter = 0;
+  const pending = new Map<number, { resolve: (v: string) => void; reject: (e: Error) => void }>();
+
+  window.addEventListener('message', (e: MessageEvent) => {
+    if (e.data?.type !== 'FILE_RESOLVED') return;
+    const entry = pending.get(e.data.id);
+    if (entry) {
+      pending.delete(e.data.id);
+      if (e.data.error) {
+        entry.reject(new Error(e.data.error));
+      } else {
+        entry.resolve(e.data.content);
+      }
+    }
+  });
+
+  documentService.setWorkspaceFileReader((relativePath: string, binary: boolean) => {
+    return new Promise((resolve, reject) => {
+      const id = ++idCounter;
+      pending.set(id, { resolve, reject });
+      window.parent.postMessage({ type: 'RESOLVE_FILE', path: relativePath, id, binary }, '*');
+    });
+  });
 }
 
 // Notify parent that the viewer frame is ready to receive content

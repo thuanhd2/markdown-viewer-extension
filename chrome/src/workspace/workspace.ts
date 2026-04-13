@@ -344,13 +344,45 @@ $changeBtn.addEventListener('click', pickAndOpen);
 
 // ─── Image resolution for iframe ───
 window.addEventListener('message', async (event: MessageEvent) => {
-  if (event.data?.type !== 'RESOLVE_IMAGE' || event.source !== $previewFrame.contentWindow) return;
-  const { src, id } = event.data;
-  const resolved = resolveRelativePath(currentFileDir, src);
-  const file = await resolveFileFromRoot(resolved);
-  if (file) {
-    const url = URL.createObjectURL(file);
-    $previewFrame.contentWindow!.postMessage({ type: 'IMAGE_RESOLVED', id, url }, '*');
+  if (event.source !== $previewFrame.contentWindow) return;
+
+  if (event.data?.type === 'RESOLVE_IMAGE') {
+    const { src, id } = event.data;
+    const resolved = resolveRelativePath(currentFileDir, src);
+    const file = await resolveFileFromRoot(resolved);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      $previewFrame.contentWindow!.postMessage({ type: 'IMAGE_RESOLVED', id, url }, '*');
+    }
+    return;
+  }
+
+  // File read requests from DocumentService.readRelativeFile (SVG plugin, DOCX export, etc.)
+  if (event.data?.type === 'RESOLVE_FILE') {
+    const { path, id, binary } = event.data;
+    const resolved = resolveRelativePath(currentFileDir, path);
+    const file = await resolveFileFromRoot(resolved);
+    if (file) {
+      try {
+        let content: string;
+        if (binary) {
+          const buffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binaryString = '';
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binaryString += String.fromCharCode(bytes[i]);
+          }
+          content = btoa(binaryString);
+        } else {
+          content = await file.text();
+        }
+        $previewFrame.contentWindow!.postMessage({ type: 'FILE_RESOLVED', id, content }, '*');
+      } catch (err) {
+        $previewFrame.contentWindow!.postMessage({ type: 'FILE_RESOLVED', id, error: (err as Error).message }, '*');
+      }
+    } else {
+      $previewFrame.contentWindow!.postMessage({ type: 'FILE_RESOLVED', id, error: `File not found: ${path}` }, '*');
+    }
   }
 });
 
