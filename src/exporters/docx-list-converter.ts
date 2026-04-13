@@ -97,14 +97,12 @@ export interface ListConverter {
  * @returns List converter
  */
 export function createListConverter({ 
-  themeStyles, 
+  themeStyles: _themeStyles,
   convertInlineNodes, 
   getListInstanceCounter,
   incrementListInstanceCounter
 }: ListConverterOptions): ListConverter {
-  // Default styles
-  const defaultRun = themeStyles.default?.run || { font: 'Arial', size: 22 };
-  const defaultSpacing = themeStyles.default?.paragraph?.spacing || { line: 276 };
+  void _themeStyles;
   
   // Mutable reference to convertChildNode (set later to avoid circular dependency)
   let convertChildNode: ConvertChildNodeFunction | undefined;
@@ -156,16 +154,12 @@ export function createListConverter({
           const checkboxSymbol = node.checked ? '▣' : '☐';
           children.unshift(new TextRun({
             text: checkboxSymbol + ' ',
-            font: defaultRun.font,
-            size: defaultRun.size,
           }));
         }
 
-        const defaultLineSpacing = defaultSpacing.line ?? 276;
         const baseParagraphConfig: IParagraphOptions = {
           children: children as ParagraphChild[],
-          spacing: { before: 0, after: 0, line: defaultLineSpacing },
-          alignment: AlignmentType.LEFT,
+          style: 'ListParagraph',
         };
 
         const paragraph = ordered && !isTaskList

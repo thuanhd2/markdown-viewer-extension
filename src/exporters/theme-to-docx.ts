@@ -10,7 +10,8 @@ import type {
   DOCXRunStyle,
   DOCXParagraphStyle,
   DOCXParagraphSpacing,
-  DOCXHeadingStyle,
+  DOCXNamedParagraphStyle,
+  DOCXBlockSpacing,
   DOCXCharacterStyle,
   DOCXTableStyle,
   DOCXTableBorders,
@@ -181,14 +182,86 @@ export function themeToDOCXStyles(
   tableStyle: TableStyleConfig,
   codeTheme: CodeThemeConfig
 ): DOCXThemeStyles {
+  const blockSpacing = generateBlockSpacing(layoutScheme);
+
   return {
     default: generateDefaultStyle(theme.fontScheme, layoutScheme),
-    paragraphStyles: generateParagraphStyles(theme.fontScheme, layoutScheme, colorScheme),
+    paragraphStyles: generateParagraphStyles(theme.fontScheme, layoutScheme, colorScheme, blockSpacing),
     characterStyles: generateCharacterStyles(theme.fontScheme, layoutScheme, colorScheme),
     tableStyles: generateTableStyles(tableStyle, colorScheme),
     codeColors: generateCodeColors(codeTheme, colorScheme),
     linkColor: colorScheme.accent.link.replace('#', ''),
-    blockquoteColor: colorScheme.blockquote.border.replace('#', '')
+    blockquoteColor: colorScheme.blockquote.border.replace('#', ''),
+    blockSpacing,
+  };
+}
+
+function parsePtValue(value: string | undefined, fallbackPt = 0): number {
+  if (!value) return fallbackPt;
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallbackPt;
+}
+
+function toCompensatedSpacing(beforePt: number, afterPt: number, lineSpacing: number): DOCXParagraphSpacing {
+  const lineSpacingExtra = lineSpacing - 240;
+  return {
+    line: lineSpacing,
+    before: Math.max(0, themeManager.ptToTwips(`${beforePt}pt`) + Math.round(lineSpacingExtra / 2)),
+    after: Math.max(0, themeManager.ptToTwips(`${afterPt}pt`) - Math.round(lineSpacingExtra / 2)),
+  };
+}
+
+function generateBlockSpacing(layoutScheme: LayoutScheme): DOCXBlockSpacing {
+  const bodyLineSpacing = Math.round(layoutScheme.body.lineHeight * 240);
+
+  const listBlock = layoutScheme.blocks.list;
+  const listItemBlock = layoutScheme.blocks.listItem;
+  const blockquoteBlock = layoutScheme.blocks.blockquote;
+  const codeBlock = layoutScheme.blocks.codeBlock;
+  const tableBlock = layoutScheme.blocks.table;
+  const horizontalRuleBlock = layoutScheme.blocks.horizontalRule;
+
+  const blockquoteSpacing = toCompensatedSpacing(
+    parsePtValue(blockquoteBlock.spacingBefore),
+    parsePtValue(blockquoteBlock.spacingAfter),
+    bodyLineSpacing
+  );
+
+  return {
+    list: toCompensatedSpacing(
+      parsePtValue(listBlock.spacingBefore),
+      parsePtValue(listBlock.spacingAfter),
+      bodyLineSpacing
+    ),
+    listItem: toCompensatedSpacing(
+      parsePtValue(listItemBlock.spacingBefore),
+      parsePtValue(listItemBlock.spacingAfter),
+      bodyLineSpacing
+    ),
+    blockquote: {
+      ...blockquoteSpacing,
+      paddingVertical: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingVertical, 4)}pt`),
+      paddingHorizontal: themeManager.ptToTwips(`${parsePtValue(blockquoteBlock.paddingHorizontal, 10)}pt`),
+    },
+    codeBlock: toCompensatedSpacing(
+      parsePtValue(codeBlock.spacingBefore, parsePtValue(codeBlock.spacingAfter)),
+      parsePtValue(codeBlock.spacingAfter),
+      276
+    ),
+    table: toCompensatedSpacing(
+      parsePtValue(tableBlock.spacingBefore, parsePtValue(tableBlock.spacingAfter)),
+      parsePtValue(tableBlock.spacingAfter),
+      240
+    ),
+    horizontalRule: {
+      line: 120,
+      before: themeManager.ptToTwips(`${parsePtValue(horizontalRuleBlock.spacingBefore, 15)}pt`),
+      after: themeManager.ptToTwips(`${parsePtValue(horizontalRuleBlock.spacingAfter, 15)}pt`),
+    },
+    math: {
+      before: 120,
+      after: 120,
+    },
   };
 }
 
@@ -239,22 +312,28 @@ function generateDefaultStyle(
 }
 
 /**
- * Generate paragraph styles for headings
+ * Generate paragraph styles for headings and block-level elements
  * @param fontScheme - Font scheme configuration (font families, fontWeight)
  * @param layoutScheme - Layout scheme configuration (sizes, alignment, spacing)
  * @param colorScheme - Color scheme configuration (including heading colors)
+ * @param blockSpacing - Converted block spacing values from layout scheme
  * @returns Paragraph styles
  */
 function generateParagraphStyles(
   fontScheme: FontScheme,
   layoutScheme: LayoutScheme,
-  colorScheme: ColorScheme
-): Record<string, DOCXHeadingStyle> {
-  const styles: Record<string, DOCXHeadingStyle> = {};
+  colorScheme: ColorScheme,
+  blockSpacing: DOCXBlockSpacing
+): Record<string, DOCXNamedParagraphStyle> {
+  const styles: Record<string, DOCXNamedParagraphStyle> = {};
+
+  const bodyLineSpacing = Math.round(layoutScheme.body.lineHeight * 240);
+  const codeFont = themeManager.getDocxFont(fontScheme.code.fontFamily);
+  const codeSize = themeManager.ptToHalfPt(layoutScheme.code.fontSize);
 
   // Heading levels
   const headingLevels = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
-  
+
   headingLevels.forEach((level, index) => {
     const headingLevel = index + 1; // h1 = 1, h2 = 2, etc.
     const fontHeading = fontScheme.headings[level] as { fontFamily?: string; fontWeight?: string } | undefined;
@@ -267,21 +346,15 @@ function generateParagraphStyles(
     const headingFontWeight = fontHeading?.fontWeight ?? fontScheme.headings.fontWeight ?? 'bold';
     const isBold = headingFontWeight === 'bold';
 
-    // Get heading's spacing from layoutScheme (absolute pt values)
-    const headingBeforePt = parseFloat(layoutHeading.spacingBefore || '0pt');
-    const headingAfterPt = parseFloat(layoutHeading.spacingAfter || '0pt');
-    
-    // Compensate for line spacing
-    // Headings use 1.5x line spacing = 360, extra = 120
-    const lineSpacingExtra = 360 - 240;
-    
-    const totalBefore = themeManager.ptToTwips(headingBeforePt + 'pt') + Math.round(lineSpacingExtra / 2);
-    const totalAfter = Math.max(0, themeManager.ptToTwips(headingAfterPt + 'pt') - Math.round(lineSpacingExtra / 2));
-
     // Heading color: from colorScheme.headings if specified, otherwise use text.primary
     const headingColor = colorScheme.headings?.[level] || colorScheme.text.primary;
+    const headingSpacing = toCompensatedSpacing(
+      parsePtValue(layoutHeading.spacingBefore),
+      parsePtValue(layoutHeading.spacingAfter),
+      360
+    );
 
-    styles[`heading${headingLevel}`] = {
+    styles[`Heading${headingLevel}`] = {
       id: `Heading${headingLevel}`,
       name: `Heading ${headingLevel}`,
       basedOn: 'Normal',
@@ -290,18 +363,119 @@ function generateParagraphStyles(
         size: themeManager.ptToHalfPt(layoutHeading.fontSize),
         bold: isBold,
         font: docxFont,
-        color: headingColor.replace('#', '')
+        color: headingColor.replace('#', ''),
       },
       paragraph: {
-        spacing: {
-          before: totalBefore,
-          after: totalAfter,
-          line: 360 // 1.5 line spacing for headings
-        },
-        alignment: layoutHeading.alignment || 'left'
-      }
+        spacing: headingSpacing,
+        alignment: layoutHeading.alignment || 'left',
+      },
     };
   });
+
+  styles.ListParagraph = {
+    id: 'ListParagraph',
+    name: 'List Paragraph',
+    basedOn: 'Normal',
+    next: 'Normal',
+    paragraph: {
+      spacing: {
+        line: blockSpacing.listItem?.line ?? bodyLineSpacing,
+        before: blockSpacing.listItem?.before ?? 0,
+        after: blockSpacing.listItem?.after ?? 0,
+      },
+    },
+  };
+
+  styles.CodeBlock = {
+    id: 'CodeBlock',
+    name: 'Code Block',
+    basedOn: 'Normal',
+    next: 'Normal',
+    run: {
+      font: codeFont,
+      size: codeSize,
+    },
+    paragraph: {
+      spacing: {
+        line: blockSpacing.codeBlock?.line ?? 276,
+        before: blockSpacing.codeBlock?.before ?? 200,
+        after: blockSpacing.codeBlock?.after ?? 200,
+      },
+    },
+  };
+
+  styles.BlockquoteText = {
+    id: 'BlockquoteText',
+    name: 'Blockquote Text',
+    basedOn: 'Normal',
+    next: 'Normal',
+    paragraph: {
+      spacing: {
+        line: blockSpacing.blockquote?.line ?? bodyLineSpacing,
+        before: blockSpacing.blockquote?.before ?? 120,
+        after: 0,
+      },
+    },
+  };
+
+  styles.TableText = {
+    id: 'TableText',
+    name: 'Table Text',
+    basedOn: 'Normal',
+    next: 'Normal',
+    run: {
+      size: 20,
+    },
+    paragraph: {
+      spacing: {
+        before: 60,
+        after: 60,
+        line: 240,
+      },
+      alignment: 'left',
+    },
+  };
+
+  styles.TableHeader = {
+    id: 'TableHeader',
+    name: 'Table Header',
+    basedOn: 'TableText',
+    next: 'TableText',
+    run: {
+      bold: true,
+    },
+    paragraph: {
+      alignment: 'center',
+    },
+  };
+
+  styles.HorizontalRule = {
+    id: 'HorizontalRule',
+    name: 'Horizontal Rule',
+    basedOn: 'Normal',
+    next: 'Normal',
+    paragraph: {
+      spacing: {
+        before: blockSpacing.horizontalRule?.before ?? 300,
+        after: blockSpacing.horizontalRule?.after ?? 300,
+        line: blockSpacing.horizontalRule?.line ?? 120,
+      },
+    },
+  };
+
+  styles.MathBlock = {
+    id: 'MathBlock',
+    name: 'Math Block',
+    basedOn: 'Normal',
+    next: 'Normal',
+    paragraph: {
+      spacing: {
+        before: blockSpacing.math?.before ?? 120,
+        after: blockSpacing.math?.after ?? 120,
+      },
+      alignment: 'center',
+    },
+  };
 
   return styles;
 }

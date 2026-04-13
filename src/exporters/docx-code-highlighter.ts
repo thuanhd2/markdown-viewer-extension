@@ -18,12 +18,6 @@ const DEFAULT_CODE_COLORS = {
   colors: {} as Record<string, string>
 };
 
-// Default code character style
-const DEFAULT_CODE_STYLE = {
-  font: 'Consolas',
-  size: 20
-};
-
 /**
  * Create a code highlighter for DOCX export
  * @param themeStyles - Theme configuration with code colors
@@ -32,7 +26,6 @@ const DEFAULT_CODE_STYLE = {
 export function createCodeHighlighter(themeStyles: DOCXThemeStyles | null): CodeHighlighter {
   // Get code colors with defaults
   const codeColors = themeStyles?.codeColors || DEFAULT_CODE_COLORS;
-  const codeStyle = themeStyles?.characterStyles?.code || DEFAULT_CODE_STYLE;
   
   /**
    * Get highlight color from CSS class list
@@ -88,16 +81,10 @@ export function createCodeHighlighter(themeStyles: DOCXThemeStyles | null): Code
     const defaultColor = codeColors.foreground;
     const appliedColor = color || defaultColor;
 
-    // Use theme code font and size (already converted to half-points in theme-to-docx.js)
-    const codeFont = codeStyle.font;
-    const codeSize = codeStyle.size;
-
     segments.forEach((segment, index) => {
       if (segment.length > 0) {
         runs.push(new TextRun({
           text: segment,
-          font: codeFont,
-          size: codeSize,
           color: appliedColor,
         }));
       }
@@ -150,15 +137,10 @@ export function createCodeHighlighter(themeStyles: DOCXThemeStyles | null): Code
     const runs: TextRun[] = [];
 
     if (!code) {
-      // Use theme code font and size (already converted to half-points in theme-to-docx.js)
-      const codeFont = codeStyle.font;
-      const codeSize = codeStyle.size;
       const defaultColor = codeColors.foreground;
 
       runs.push(new TextRun({
         text: '',
-        font: codeFont,
-        size: codeSize,
         color: defaultColor,
       }));
       return runs;

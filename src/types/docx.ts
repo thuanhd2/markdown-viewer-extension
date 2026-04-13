@@ -86,6 +86,18 @@ export interface DOCXHeadingStyle {
 }
 
 /**
+ * Internal named paragraph style (supports both heading and custom block styles)
+ */
+export interface DOCXNamedParagraphStyle {
+  id: string;
+  name: string;
+  basedOn: string;
+  next: string;
+  run?: Partial<DOCXRunStyle>;
+  paragraph?: DOCXParagraphStyle;
+}
+
+/**
  * Internal character style for code blocks
  */
 export interface DOCXCharacterStyle {
@@ -149,6 +161,22 @@ export interface DOCXCodeColors {
 }
 
 /**
+ * Block spacing values generated from layout-scheme blocks settings
+ */
+export interface DOCXBlockSpacing {
+  list?: DOCXParagraphSpacing;
+  listItem?: DOCXParagraphSpacing;
+  blockquote?: DOCXParagraphSpacing & {
+    paddingVertical?: number;
+    paddingHorizontal?: number;
+  };
+  codeBlock?: DOCXParagraphSpacing;
+  table?: DOCXParagraphSpacing;
+  horizontalRule?: DOCXParagraphSpacing;
+  math?: DOCXParagraphSpacing;
+}
+
+/**
  * Complete internal DOCX theme styles configuration
  * Used throughout the DOCX export system
  */
@@ -157,7 +185,7 @@ export interface DOCXThemeStyles {
     run: DOCXRunStyle;
     paragraph: DOCXParagraphStyle;
   };
-  paragraphStyles: Record<string, DOCXHeadingStyle>;
+  paragraphStyles: Record<string, DOCXNamedParagraphStyle>;
   characterStyles: {
     code: DOCXCharacterStyle;
   };
@@ -165,6 +193,7 @@ export interface DOCXThemeStyles {
   codeColors: DOCXCodeColors;
   linkColor: string;  // Link color from colorScheme (hex without #)
   blockquoteColor: string;  // Blockquote left border color from colorScheme (hex without #)
+  blockSpacing: DOCXBlockSpacing;
 }
 
 // =============================================================================

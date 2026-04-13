@@ -324,14 +324,7 @@ export function createInlineConverter({
    */
   async function convertInlineNodes(nodes: InlineNode[], parentStyle: ParentStyle = {}): Promise<InlineResult[]> {
     const runs: InlineResult[] = [];
-    const bodyFont = themeStyles.default.run.font;
-    const bodySize = themeStyles.default.run.size;
-
-    const defaultStyle: ParentStyle = {
-      font: bodyFont,
-      size: bodySize,
-      ...parentStyle,
-    };
+    const defaultStyle: ParentStyle = { ...parentStyle };
 
     for (const node of nodes) {
       const converted = await convertInlineNode(node, defaultStyle);
