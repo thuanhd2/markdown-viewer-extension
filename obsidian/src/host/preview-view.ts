@@ -11,6 +11,7 @@
 import { ItemView, WorkspaceLeaf, TFile, Menu, Notice } from 'obsidian';
 import type MarkdownViewerPlugin from './main';
 import { getFileType } from '../../../src/utils/file-wrapper';
+import { rewriteObsidianSvgEmbeds } from './obsidian-svg-embed-rewrite';
 
 // Viewer module — runs in same process, no iframe
 import { initializeViewer, obsidianHostTransport } from '../webview/main';
@@ -140,7 +141,8 @@ export class MarkdownPreviewView extends ItemView {
   }
 
   private async sendFileContent(file: TFile): Promise<void> {
-    const content = await this.app.vault.read(file);
+    const rawContent = await this.app.vault.read(file);
+    const content = this.preprocessMarkdownContent(rawContent, file);
 
     // Build resource base URI for image path resolution.
     // Use a placeholder filename so getResourcePath returns a proper app:// URL
@@ -161,6 +163,17 @@ export class MarkdownPreviewView extends ItemView {
       filename: file.name,
       documentPath: file.path,
       documentBaseUri,
+    });
+  }
+
+  private preprocessMarkdownContent(content: string, file: TFile): string {
+    if (file.extension !== 'md' && file.extension !== 'markdown') {
+      return content;
+    }
+
+    return rewriteObsidianSvgEmbeds(content, file.path, (linkPath) => {
+      const target = this.app.metadataCache.getFirstLinkpathDest(linkPath, file.path);
+      return target?.path ?? null;
     });
   }
 
