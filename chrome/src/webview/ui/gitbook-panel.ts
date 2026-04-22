@@ -23,7 +23,6 @@ interface GitbookNavItem {
 
 interface GitbookPanel {
   generateGitbookPanel(): Promise<void>;
-  setupGitbookPanelToggle(): () => void;
   setupResponsivePanel(): Promise<void>;
 }
 
@@ -48,6 +47,39 @@ function normalizeSummaryLinkTarget(rawLink: string): string {
     ? trimmed.slice(1, -1)
     : trimmed;
   return angleWrapped.split('#')[0].split('?')[0].trim();
+}
+
+function normalizeRawGitHubRefUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url, window.location.href);
+    if (parsed.hostname !== 'raw.githubusercontent.com') {
+      return null;
+    }
+
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    // /{owner}/{repo}/refs/{heads|tags}/{ref}/{path...}
+    if (segments.length < 6 || segments[2] !== 'refs') {
+      return null;
+    }
+
+    const refType = segments[3];
+    if (refType !== 'heads' && refType !== 'tags') {
+      return null;
+    }
+
+    const owner = segments[0];
+    const repo = segments[1];
+    const ref = segments[4];
+    const filePath = segments.slice(5).join('/');
+    if (!filePath) {
+      return null;
+    }
+
+    parsed.pathname = `/${owner}/${repo}/${ref}/${filePath}`;
+    return parsed.href;
+  } catch {
+    return null;
+  }
 }
 
 function parseGitbookSummary(summaryContent: string, summaryUrl: string): GitbookNavItem[] {
@@ -127,18 +159,32 @@ async function loadGitbookNavigation(
     return null;
   }
 
+  const baseUrls = [currentUrl];
+  const normalizedRawUrl = normalizeRawGitHubRefUrl(currentUrl);
+  if (normalizedRawUrl && normalizedRawUrl !== currentUrl) {
+    baseUrls.push(normalizedRawUrl);
+  }
+
+  const summaryNames = ['SUMMARY.md', 'summary.md'];
+
   let depth = 0;
   while (depth <= 20) {
-    const relativePath = `${'../'.repeat(depth)}SUMMARY.md`;
-    const loaded = await readSummaryByRelativePath(relativePath, currentUrl, readRelativeFile);
-    if (loaded) {
-      const navItems = parseGitbookSummary(loaded.content, loaded.summaryUrl);
-      logDebug('Summary parsed', {
-        summaryUrl: loaded.summaryUrl,
-        itemCount: navItems.length,
-      });
-      if (navItems.length > 0) {
-        return navItems;
+    for (const summaryName of summaryNames) {
+      const relativePath = `${'../'.repeat(depth)}${summaryName}`;
+      for (const baseUrl of baseUrls) {
+        const loaded = await readSummaryByRelativePath(relativePath, baseUrl, readRelativeFile);
+        if (!loaded) {
+          continue;
+        }
+
+        const navItems = parseGitbookSummary(loaded.content, loaded.summaryUrl);
+        logDebug('Summary parsed', {
+          summaryUrl: loaded.summaryUrl,
+          itemCount: navItems.length,
+        });
+        if (navItems.length > 0) {
+          return navItems;
+        }
       }
     }
 
@@ -178,6 +224,34 @@ export function createGitbookPanel(
   isMobile: boolean,
   options: GitbookPanelOptions = {}
 ): GitbookPanel {
+  function getPanelElements(): {
+    panelDiv: HTMLElement | null;
+    sidebarBody: HTMLElement | null;
+    sidebarHeader: HTMLElement | null;
+    resizeHandle: HTMLElement | null;
+  } {
+    return {
+      panelDiv: document.getElementById('gitbook-panel'),
+      sidebarBody: document.getElementById('gitbook-sidebar-body'),
+      sidebarHeader: document.getElementById('gitbook-sidebar-header'),
+      resizeHandle: document.getElementById('gitbook-resize-handle'),
+    };
+  }
+
+  function setPanelVisibility(visible: boolean): void {
+    const { panelDiv, sidebarBody, sidebarHeader, resizeHandle } = getPanelElements();
+    if (!panelDiv) {
+      return;
+    }
+
+    sidebarBody?.classList.toggle('hidden', !visible);
+    sidebarHeader?.classList.toggle('hidden', !visible);
+    resizeHandle?.classList.toggle('hidden', !visible);
+
+    // Notify layout code to recompute absolute resize handle position.
+    window.dispatchEvent(new Event('gitbook-panel-visibility-changed'));
+  }
+
   async function applySavedPanelVisibilityState(panelDiv: HTMLElement): Promise<void> {
     const savedState = await getFileState();
 
@@ -190,15 +264,11 @@ export function createGitbookPanel(
 
     const currentlyVisible = !panelDiv.classList.contains('hidden');
     if (shouldBeVisible === currentlyVisible) {
+      setPanelVisibility(shouldBeVisible);
       return;
     }
 
-    if (!shouldBeVisible) {
-      panelDiv.classList.add('hidden');
-      return;
-    }
-
-    panelDiv.classList.remove('hidden');
+    setPanelVisibility(shouldBeVisible);
   }
 
   async function renderGitbookPanelIfAvailable(panelDiv: HTMLElement): Promise<boolean> {
@@ -206,7 +276,7 @@ export function createGitbookPanel(
     const navItems = await loadGitbookNavigation(currentUrl, options.readRelativeFile);
     if (!navItems || navItems.length === 0) {
       logDebug('No GitBook items found, keeping panel hidden');
-      panelDiv.classList.add('hidden');
+      setPanelVisibility(false);
       return false;
     }
 
@@ -224,7 +294,7 @@ export function createGitbookPanel(
     }
     panelHTML += '</ul>';
     panelDiv.innerHTML = panelHTML;
-    panelDiv.classList.remove('hidden');
+    setPanelVisibility(true);
 
     // Setup click handlers for file navigation (no page refresh)
     panelDiv.querySelectorAll('a').forEach((link) => {
@@ -255,8 +325,8 @@ export function createGitbookPanel(
           }
           
           // Mark active item
-          panelDiv.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
-          item.classList.add('active');
+          panelDiv.querySelectorAll('a').forEach(el => el.classList.remove('active'));
+          link.classList.add('active');
         } catch (error) {
           console.error('Navigation failed:', error);
         }
@@ -264,24 +334,23 @@ export function createGitbookPanel(
     });
 
     markActiveGitbookItem(panelDiv);
-    await applySavedPanelVisibilityState(panelDiv);
     logDebug('Rendered GitBook panel', { itemCount: navItems.length });
     return true;
   }
 
   function setupGitbookPanelToggle(): () => void {
     return async () => {
-      const panelDiv = document.getElementById('gitbook-panel');
+      const { panelDiv } = getPanelElements();
       if (!panelDiv) {
         return;
       }
 
       const isHidden = panelDiv.classList.contains('hidden');
       if (isHidden) {
-        panelDiv.classList.remove('hidden');
+        setPanelVisibility(true);
         saveFileState({ gitbookPanelVisible: true });
       } else {
-        panelDiv.classList.add('hidden');
+        setPanelVisibility(false);
         saveFileState({ gitbookPanelVisible: false });
       }
     };
@@ -298,23 +367,11 @@ export function createGitbookPanel(
   }
 
   async function setupResponsivePanel(): Promise<void> {
-    const panelDiv = document.getElementById('gitbook-panel');
-    if (!panelDiv) {
-      return;
-    }
-
-    // On mobile, hide by default unless explicitly shown
-    if (isMobile) {
-      const savedState = await getFileState();
-      if (savedState.gitbookPanelVisible !== true) {
-        panelDiv.classList.add('hidden');
-      }
-    }
+    // Panel is always shown when SUMMARY.md is available; nothing to do here.
   }
 
   return {
     generateGitbookPanel,
-    setupGitbookPanelToggle,
     setupResponsivePanel,
   };
 }

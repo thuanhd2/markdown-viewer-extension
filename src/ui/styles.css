@@ -33,6 +33,9 @@
   --color-text-tertiary: #64748b;
   --color-border: #e2e8f0;
   --color-border-hover: #cbd5e1;
+  --color-nav-active-bg: var(--color-primary-light);
+  --color-nav-active-text: var(--color-primary);
+  --color-nav-active-border: var(--color-primary);
   
   /* Transitions - disabled for instant updates */
   --transition-fast: 0s;
@@ -59,6 +62,9 @@
   --color-border-hover: #4a5058;
   --color-primary-light: #1e293b;
   --color-primary-subtle: #233044;
+  --color-nav-active-bg: #26364d;
+  --color-nav-active-text: #9bc2ff;
+  --color-nav-active-border: #7aaeff;
   --shadow-toolbar: 0 2px 4px rgba(0, 0, 0, 0.35);
 
   /* Flip the neutral gray scale too so hover states (which use
@@ -108,22 +114,46 @@ body {
   background-color: var(--color-bg-body);
 }
 
-/* Toolbar Styles */
-#toolbar {
+/* Page Shell — full-screen fixed container (flex column) */
+#page-shell {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header row: main toolbar + optional GitBook header side by side */
+#page-header {
+  display: flex;
   height: 50px;
+  flex-shrink: 0;
   background: var(--color-bg-surface);
   border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-toolbar);
+  z-index: 1001;
+}
+
+/* Content row: main column + resize handle + GitBook sidebar */
+#page-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+/* Toolbar Styles */
+#toolbar {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 0 20px;
-  z-index: 1001;
-  box-shadow: var(--shadow-toolbar);
   user-select: none;
+  order: 1;
 }
 
 .toolbar-left,
@@ -298,15 +328,6 @@ body {
   color: var(--color-text-primary);
 }
 
-/* When TOC is hidden, adjust the content margin */
-body.toc-hidden #markdown-wrapper {
-  margin-left: 0;
-}
-
-body.toc-position-right.toc-hidden #markdown-wrapper {
-  margin-right: 0;
-}
-
 #table-of-contents {
   width: 280px;
   background: var(--color-bg-toc);
@@ -381,44 +402,118 @@ body.toc-position-right #table-of-contents.hidden {
 }
 
 #table-of-contents a.active {
-  color: var(--color-primary);
+  color: var(--color-nav-active-text);
   font-weight: 600;
-  background-color: var(--color-primary-light);
-  border-left: 3px solid var(--color-primary);
+  background-color: var(--color-nav-active-bg);
+  border-left: 3px solid var(--color-nav-active-border);
   padding-left: 5px;
 }
 
-/* GitBook Navigation Panel */
+/* GitBook Navigation Panel — inside sidebar body (flex child) */
 #gitbook-panel {
-  display: none;
-  width: 280px;
-  background: var(--color-bg-toc);
-  border-left: 1px solid var(--color-border);
-  position: fixed;
-  top: 50px;
-  right: 0;
-  height: calc(100vh - 50px);
+  flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
-  z-index: 1000;
   user-select: none;
-  padding: 20px 0;
+  padding: 12px 0;
 }
 
-/* Show panel when it's not hidden (i.e., SUMMARY.md found) */
-#gitbook-panel:not(.hidden) {
-  display: block;
+/* GitBook sidebar header — sits alongside main toolbar in page-header */
+#gitbook-sidebar-header {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  order: 2;
 }
 
-#gitbook-panel.hidden {
+#gitbook-sidebar-header.hidden {
   display: none;
 }
 
-body.toc-position-right #gitbook-panel {
-  right: auto;
+.gitbook-sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* GitBook sidebar body — flex child in page-content row */
+#gitbook-sidebar-body {
+  order: 3;
+  width: 280px;
+  min-width: 160px;
+  max-width: 560px;
+  background: var(--color-bg-surface);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#gitbook-sidebar-body.hidden {
+  display: none;
+}
+
+/* Main content column */
+#viewer-main-column {
+  order: 1;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Resize handle */
+#gitbook-resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background var(--transition-fast);
+  position: absolute;
+  top: 0;
+  bottom: 0;
   left: 0;
+  z-index: 5;
+}
+
+#gitbook-resize-handle.hidden {
+  display: none;
+}
+
+#gitbook-resize-handle:hover,
+#gitbook-resize-handle.active {
+  background: var(--color-primary);
+}
+
+/* GitBook sidebar on left side (TOC on right) */
+body.gitbook-sidebar-left #toolbar {
+  order: 2;
+}
+
+body.gitbook-sidebar-left #gitbook-sidebar-header {
+  order: 1;
   border-left: none;
   border-right: 1px solid var(--color-border);
+}
+
+body.gitbook-sidebar-left #viewer-main-column {
+  order: 3;
+}
+
+body.gitbook-sidebar-left #gitbook-sidebar-body {
+  order: 1;
+  border-left: none;
+  border-right: 1px solid var(--color-border);
+}
+
+body.gitbook-sidebar-left #gitbook-resize-handle {
+  order: 2;
+}
+
+body.sidebar-resizing {
+  user-select: none;
 }
 
 #gitbook-panel .gitbook-nav-list {
@@ -449,40 +544,38 @@ body.toc-position-right #gitbook-panel {
 }
 
 #gitbook-panel a.active {
-  color: var(--color-primary);
+  color: var(--color-nav-active-text);
   font-weight: 600;
-  background-color: var(--color-primary-light);
-  border-left: 3px solid var(--color-primary);
+  background-color: var(--color-nav-active-bg);
+  border-left: 3px solid var(--color-nav-active-border);
   padding-left: 5px;
 }
 
-/* Adjust markdown wrapper when GitBook panel is visible */
+/* Markdown wrapper fills viewer-main-column; TOC still uses margin to avoid overlap */
 #markdown-wrapper {
   margin-left: 280px;
-  margin-top: 50px;
-  margin-right: 280px;
-  height: calc(100vh - 50px);
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   scroll-padding-top: 12px;
 }
 
-/* When GitBook panel is hidden, remove right margin */
-#gitbook-panel.hidden ~ #markdown-wrapper {
-  margin-right: 0;
+/* When TOC is hidden, remove left margin */
+body.toc-hidden #markdown-wrapper {
+  margin-left: 0;
 }
 
-/* When TOC panel is positioned right, remove left margin */
+/* When TOC panel is positioned right */
 body.toc-position-right #markdown-wrapper {
   margin-left: 0;
   margin-right: 280px;
 }
 
-/* When TOC is right and GitBook panel is hidden */
-body.toc-position-right #gitbook-panel.hidden ~ #markdown-wrapper {
+body.toc-position-right.toc-hidden #markdown-wrapper {
   margin-right: 0;
 }
+
 
 #markdown-page {
   max-width: 1060px;
@@ -665,6 +758,12 @@ html[data-code-view] #markdown-content pre code::before {
 }
 
 @media (max-width: 1024px) {
+  #gitbook-sidebar-body,
+  #gitbook-sidebar-header,
+  #gitbook-resize-handle {
+    display: none !important;
+  }
+
   #markdown-wrapper {
     margin-left: 0;
     margin-right: 0;

@@ -109,9 +109,38 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const { platform, pluginRenderer, themeConfigRenderer } = options;
   const webExtensionApi = getWebExtensionApi();
   const isMobile = platform.platform === 'mobile';
+  const MIN_SIDEBAR_WIDTH = 160;
+  const MAX_SIDEBAR_WIDTH = 560;
+  let syncResizeHandlePosition: (() => void) | null = null;
+
+  function constrainSidebarWidth(width: number): number {
+    const maxWidth = Math.min(window.innerWidth * 0.5, MAX_SIDEBAR_WIDTH);
+    return Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, width));
+  }
+
+  async function getStoredSidebarWidth(): Promise<number | null> {
+    try {
+      const value = await platform.settings.get('readerSidebarWidth');
+      if (typeof value !== 'number' || Number.isNaN(value)) {
+        return null;
+      }
+      return value;
+    } catch {
+      return null;
+    }
+  }
+
+  async function setStoredSidebarWidth(value: number): Promise<void> {
+    try {
+      await platform.settings.set('readerSidebarWidth', value);
+    } catch {
+      // Ignore persistence failures to avoid blocking resize behavior.
+    }
+  }
 
   function applyTocPanelSide(swapped: boolean): void {
     document.body.classList.toggle('toc-position-right', swapped);
+    document.body.classList.toggle('gitbook-sidebar-left', swapped);
 
     const toggleTocBtn = document.getElementById('toggle-toc-btn');
     const toolbarLeft = document.querySelector('.toolbar-left');
@@ -126,6 +155,93 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     } else {
       toolbarLeft.prepend(toggleTocBtn);
     }
+
+    syncResizeHandlePosition?.();
+  }
+
+  async function initGitbookSidebarResize(): Promise<void> {
+    if (isMobile) {
+      return;
+    }
+
+    const sidebar = document.getElementById('gitbook-sidebar-body') as HTMLElement | null;
+    const sidebarHeader = document.getElementById('gitbook-sidebar-header') as HTMLElement | null;
+    const resizeHandle = document.getElementById('gitbook-resize-handle') as HTMLElement | null;
+
+    if (!sidebar || !resizeHandle) {
+      return;
+    }
+
+    const pageContent = document.getElementById('page-content') as HTMLElement | null;
+    if (!pageContent) {
+      return;
+    }
+
+    const updateResizeHandlePosition = (): void => {
+      const contentWidth = pageContent.clientWidth;
+      const sidebarWidth = sidebar.offsetWidth;
+      const handleWidth = resizeHandle.offsetWidth || 4;
+
+      if (contentWidth <= 0 || sidebarWidth <= 0) {
+        return;
+      }
+
+      const isSidebarLeft = document.body.classList.contains('gitbook-sidebar-left');
+      const seamX = isSidebarLeft ? sidebarWidth : contentWidth - sidebarWidth;
+      const handleLeft = Math.max(0, Math.min(contentWidth - handleWidth, seamX - handleWidth / 2));
+      resizeHandle.style.left = `${handleLeft}px`;
+    };
+
+    syncResizeHandlePosition = updateResizeHandlePosition;
+
+    // Apply saved width to both sidebar body and header
+    const applySidebarWidth = (px: number): void => {
+      sidebar.style.width = `${px}px`;
+      if (sidebarHeader) {
+        sidebarHeader.style.width = `${px}px`;
+      }
+    };
+
+    const savedWidth = await getStoredSidebarWidth();
+    if (savedWidth !== null) {
+      applySidebarWidth(constrainSidebarWidth(savedWidth));
+    }
+    updateResizeHandlePosition();
+
+    resizeHandle.addEventListener('mousedown', (event: MouseEvent) => {
+      event.preventDefault();
+
+      resizeHandle.classList.add('active');
+      document.body.classList.add('sidebar-resizing');
+
+      const startX = event.clientX;
+      const startWidth = sidebar.offsetWidth;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const isSidebarLeft = document.body.classList.contains('gitbook-sidebar-left');
+        const nextWidth = isSidebarLeft ? startWidth + deltaX : startWidth - deltaX;
+        const constrained = constrainSidebarWidth(nextWidth);
+        applySidebarWidth(constrained);
+        updateResizeHandlePosition();
+      };
+
+      const onMouseUp = () => {
+        resizeHandle.classList.remove('active');
+        document.body.classList.remove('sidebar-resizing');
+        void setStoredSidebarWidth(sidebar.offsetWidth);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    window.addEventListener('resize', updateResizeHandlePosition);
+    window.addEventListener('gitbook-panel-visibility-changed', () => {
+      requestAnimationFrame(updateResizeHandlePosition);
+    });
   }
 
   // Prevent browser from auto-restoring scroll position before our content is ready.
@@ -194,10 +310,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   setFavicon();
 
   // Initialize TOC manager
-  const tocManager = createTocManager(saveFileState, getFileState, isMobile, {
-    currentUrl,
-    readRelativeFile: (relativePath: string) => platform.document.readRelativeFile(relativePath),
-  });
+  const tocManager = createTocManager(saveFileState, getFileState, isMobile);
   const { generateTOC, setupTocToggle, updateActiveTocItem, setupResponsiveToc } = tocManager;
 
   // Create navigation callback for GitBook panel (will be set after renderMarkdown is defined)
@@ -206,7 +319,12 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   // Initialize GitBook panel manager
   const gitbookPanel = createGitbookPanel(saveFileState, getFileState, isMobile, {
     currentUrl,
-    readRelativeFile: (relativePath: string) => platform.document.readRelativeFile(relativePath),
+    readRelativeFile: async (relativePath: string) => {
+      if (!platform.document) {
+        throw new Error('Document service unavailable');
+      }
+      return platform.document.readRelativeFile(relativePath);
+    },
     onNavigateFile: (url: string, content: string) => {
       if (onGitbookNavigate) {
         return onGitbookNavigate(url, content);
@@ -214,7 +332,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       return Promise.resolve();
     },
   });
-  const { generateGitbookPanel, setupGitbookPanelToggle, setupResponsivePanel } = gitbookPanel;
+  const { generateGitbookPanel, setupResponsivePanel } = gitbookPanel;
 
   // Get the raw markdown content.
   // When the page is a rendered HTML document the html-to-markdown content
@@ -367,11 +485,11 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     initialMaxWidth,
     initialZoom,
   });
-
   if (!initialTocVisible) {
     document.body.classList.add('toc-hidden');
   }
   applyTocPanelSide(Boolean(initialSwapPanelSide));
+  await initGitbookSidebarResize();
 
   // Initialize scroll sync controller immediately after DOM is ready
   initScrollSyncController();

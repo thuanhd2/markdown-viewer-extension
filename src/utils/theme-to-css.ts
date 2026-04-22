@@ -686,8 +686,8 @@ export async function loadAndApplyTheme(themeId: string): Promise<void> {
       // read it synchronously via an inline preload script before CSS
       // parses — prevents a white flash during iframe navigation.
       try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('mdv-dark', colorSchema === 'dark' ? '1' : '0');
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('mdv-dark', colorSchema === 'dark' ? '1' : '0');
         }
       } catch { /* storage disabled */ }
     }

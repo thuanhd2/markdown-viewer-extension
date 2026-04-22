@@ -476,6 +476,7 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
   const toolbarZoomInTitle = translate('toolbar_zoom_in_title');
   const toolbarDownloadTitle = translate('toolbar_download_title');
   const toolbarPrintTitle = translate('toolbar_print_title');
+  const toolbarToggleGitbookTitle = 'Toggle GitBook Panel';
 
   const layoutTitleAttr = escapeHtml(toolbarLayoutTitleNormal);
   const toggleTocTitleAttr = escapeHtml(toolbarToggleTocTitle);
@@ -483,61 +484,76 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
   const zoomInTitleAttr = escapeHtml(toolbarZoomInTitle);
   const downloadTitleAttr = escapeHtml(toolbarDownloadTitle);
   const printTitleAttr = escapeHtml(toolbarPrintTitle);
+  const toggleGitbookTitleAttr = escapeHtml(toolbarToggleGitbookTitle);
 
   return `
-  <div id="toolbar">
-    <div class="toolbar-left">
-      <button id="toggle-toc-btn" class="toolbar-btn" title="${toggleTocTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <span id="file-name" class="file-name"></span>
-      <div id="processing-indicator" class="processing-indicator hidden">
-        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
-          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="#666" stroke-width="2" fill="none"/>
-          <circle class="progress-circle-progress" cx="9" cy="9" r="7" stroke="#00d4aa" stroke-width="2" fill="none"
-                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
-        </svg>
+  <div id="page-shell">
+    <div id="page-header">
+      <div id="toolbar">
+        <div class="toolbar-left">
+          <button id="toggle-toc-btn" class="toolbar-btn" title="${toggleTocTitleAttr}">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <span id="file-name" class="file-name"></span>
+          <div id="processing-indicator" class="processing-indicator hidden">
+            <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
+              <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="#666" stroke-width="2" fill="none"/>
+              <circle class="progress-circle-progress" cx="9" cy="9" r="7" stroke="#00d4aa" stroke-width="2" fill="none"
+                      stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="toolbar-center">
+          <button id="zoom-out-btn" class="toolbar-btn" title="${zoomOutTitleAttr}">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <span id="zoom-level" class="zoom-level">100%</span>
+          <button id="zoom-in-btn" class="toolbar-btn" title="${zoomInTitleAttr}">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button id="layout-toggle-btn" class="toolbar-btn" title="${layoutTitleAttr}">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+              <rect x="3" y="4" width="14" height="12" stroke-width="2" rx="1"/>
+              <line x1="3" y1="7" x2="17" y2="7" stroke-width="2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="toolbar-right">
+          <button id="download-btn" class="toolbar-btn toolbar-menu-trigger" title="${downloadTitleAttr}" aria-haspopup="menu" aria-expanded="false">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg class="toolbar-menu-caret" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+              <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="gitbook-sidebar-header" class="hidden">
+        <span class="gitbook-sidebar-title">SUMMARY.md</span>
       </div>
     </div>
-    <div class="toolbar-center">
-      <button id="zoom-out-btn" class="toolbar-btn" title="${zoomOutTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <span id="zoom-level" class="zoom-level">100%</span>
-      <button id="zoom-in-btn" class="toolbar-btn" title="${zoomInTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 5v10M5 10h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </button>
-      <button id="layout-toggle-btn" class="toolbar-btn" title="${layoutTitleAttr}">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-          <rect x="3" y="4" width="14" height="12" stroke-width="2" rx="1"/>
-          <line x1="3" y1="7" x2="17" y2="7" stroke-width="2"/>
-        </svg>
-      </button>
-    </div>
-    <div class="toolbar-right">
-      <button id="download-btn" class="toolbar-btn toolbar-menu-trigger" title="${downloadTitleAttr}" aria-haspopup="menu" aria-expanded="false">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <svg class="toolbar-menu-caret" width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+    <div id="page-content">
+      <div id="viewer-main-column">
+        <div id="markdown-wrapper">
+          <div id="markdown-page" style="max-width: ${initialMaxWidth};">
+            <div id="markdown-content" style="zoom: ${initialZoom / 100};"></div>
+          </div>
+        </div>
+      </div>
+      <div id="gitbook-resize-handle" class="hidden" aria-hidden="true"></div>
+      <aside id="gitbook-sidebar-body" class="hidden">
+        <div id="gitbook-panel"></div>
+      </aside>
     </div>
   </div>
   <div id="table-of-contents" class="${initialTocClass}"></div>
-  <div id="gitbook-panel" class="hidden"></div>
   <div id="toc-overlay" class="hidden"></div>
-  <div id="markdown-wrapper">
-    <div id="markdown-page" style="max-width: ${initialMaxWidth};">
-      <div id="markdown-content" style="zoom: ${initialZoom / 100};"></div>
-    </div>
-  </div>
 `;
 }

@@ -15,7 +15,7 @@
 }
 
 /* Dark surface override — toggled by the inline preload script in
-   workspace.html when `mdv-dark=1` is present in localStorage. Flips the
+  workspace.html when `mdv-dark=1` is present in sessionStorage. Flips the
    whole palette so sidebar, file tree, toolbar buttons, search inputs and
    the landing page all follow the selected dark theme. */
 :root.dark {
@@ -121,6 +121,7 @@ html, body {
 .workspace {
   display: flex;
   height: 100%;
+  position: relative;
 }
 
 .workspace.sidebar-left {
@@ -133,8 +134,13 @@ html, body {
   cursor: col-resize;
   background: transparent;
   transition: background 0.15s;
-  flex-shrink: 0;
+  position: absolute;
+  top: 50px;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
 }
+
 .resize-handle:hover,
 .resize-handle.active {
   background: var(--color-primary);
