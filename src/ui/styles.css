@@ -388,9 +388,79 @@ body.toc-position-right #table-of-contents.hidden {
   padding-left: 5px;
 }
 
+/* GitBook Navigation Panel */
+#gitbook-panel {
+  display: none;
+  width: 280px;
+  background: var(--color-bg-toc);
+  border-left: 1px solid var(--color-border);
+  position: fixed;
+  top: 50px;
+  right: 0;
+  height: calc(100vh - 50px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 1000;
+  user-select: none;
+  padding: 20px 0;
+}
+
+/* Show panel when it's not hidden (i.e., SUMMARY.md found) */
+#gitbook-panel:not(.hidden) {
+  display: block;
+}
+
+#gitbook-panel.hidden {
+  display: none;
+}
+
+body.toc-position-right #gitbook-panel {
+  right: auto;
+  left: 0;
+  border-left: none;
+  border-right: 1px solid var(--color-border);
+}
+
+#gitbook-panel .gitbook-nav-list {
+  list-style: none;
+  padding: 0 12px;
+  margin: 0;
+}
+
+#gitbook-panel li {
+  margin: 0;
+}
+
+#gitbook-panel a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  transition: all var(--transition-fast);
+  display: block;
+  padding: 4px 8px;
+  margin: 2px 0;
+  border-radius: 4px;
+  border-left: 3px solid transparent;
+}
+
+#gitbook-panel a:hover {
+  color: var(--color-text-primary);
+  background-color: var(--gray-200);
+}
+
+#gitbook-panel a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+  background-color: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary);
+  padding-left: 5px;
+}
+
+/* Adjust markdown wrapper when GitBook panel is visible */
 #markdown-wrapper {
   margin-left: 280px;
   margin-top: 50px;
+  margin-right: 280px;
   height: calc(100vh - 50px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -398,9 +468,20 @@ body.toc-position-right #table-of-contents.hidden {
   scroll-padding-top: 12px;
 }
 
+/* When GitBook panel is hidden, remove right margin */
+#gitbook-panel.hidden ~ #markdown-wrapper {
+  margin-right: 0;
+}
+
+/* When TOC panel is positioned right, remove left margin */
 body.toc-position-right #markdown-wrapper {
   margin-left: 0;
   margin-right: 280px;
+}
+
+/* When TOC is right and GitBook panel is hidden */
+body.toc-position-right #gitbook-panel.hidden ~ #markdown-wrapper {
+  margin-right: 0;
 }
 
 #markdown-page {

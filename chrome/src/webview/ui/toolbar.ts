@@ -532,6 +532,7 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
     </div>
   </div>
   <div id="table-of-contents" class="${initialTocClass}"></div>
+  <div id="gitbook-panel" class="hidden"></div>
   <div id="toc-overlay" class="hidden"></div>
   <div id="markdown-wrapper">
     <div id="markdown-page" style="max-width: ${initialMaxWidth};">

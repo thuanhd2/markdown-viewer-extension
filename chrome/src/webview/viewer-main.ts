@@ -22,6 +22,7 @@ import { getCurrentDocumentUrl, saveToHistory } from '../../../src/core/document
 import type { FileState } from '../../../src/types/core';
 import { updateProgress, showProcessingIndicator, hideProcessingIndicator } from './ui/progress-indicator';
 import { createTocManager } from './ui/toc-manager';
+import { createGitbookPanel } from './ui/gitbook-panel';
 import { createToolbarManager, generateToolbarHTML, layoutIcons } from './ui/toolbar';
 
 // Import shared utilities from viewer-host
@@ -193,8 +194,27 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   setFavicon();
 
   // Initialize TOC manager
-  const tocManager = createTocManager(saveFileState, getFileState, isMobile);
+  const tocManager = createTocManager(saveFileState, getFileState, isMobile, {
+    currentUrl,
+    readRelativeFile: (relativePath: string) => platform.document.readRelativeFile(relativePath),
+  });
   const { generateTOC, setupTocToggle, updateActiveTocItem, setupResponsiveToc } = tocManager;
+
+  // Create navigation callback for GitBook panel (will be set after renderMarkdown is defined)
+  let onGitbookNavigate: ((url: string, content: string) => Promise<void>) | undefined;
+
+  // Initialize GitBook panel manager
+  const gitbookPanel = createGitbookPanel(saveFileState, getFileState, isMobile, {
+    currentUrl,
+    readRelativeFile: (relativePath: string) => platform.document.readRelativeFile(relativePath),
+    onNavigateFile: (url: string, content: string) => {
+      if (onGitbookNavigate) {
+        return onGitbookNavigate(url, content);
+      }
+      return Promise.resolve();
+    },
+  });
+  const { generateGitbookPanel, setupGitbookPanelToggle, setupResponsivePanel } = gitbookPanel;
 
   // Get the raw markdown content.
   // When the page is a rendered HTML document the html-to-markdown content
@@ -410,6 +430,8 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     setupTocToggle();
     toolbarManager.setupKeyboardShortcuts();
     await setupResponsiveToc();
+    await setupResponsivePanel();
+    await generateGitbookPanel();
   }, 100);
 
   // Listen for scroll events and save line number
@@ -456,6 +478,23 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       afterRender: updateActiveTocItem,
     });
   }
+
+  // Setup GitBook navigation handler (navigate without page refresh)
+  onGitbookNavigate = async (url: string, content: string): Promise<void> => {
+    try {
+      // Update document title from URL or filename
+      const filename = url.split('/').pop()?.replace(/\.md$/, '') || 'Document';
+      document.title = filename;
+
+      // Update page content with new markdown
+      await renderMarkdown(content, 0, false);
+
+      // Save to browser history
+      saveToHistory(platform);
+    } catch (error) {
+      console.error('[Chrome] GitBook navigation failed:', error);
+    }
+  };
 
   /**
    * Handle theme change - use handleThemeSwitchFlow (same as VSCode/Mobile)
