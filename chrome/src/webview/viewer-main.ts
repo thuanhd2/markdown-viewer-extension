@@ -232,6 +232,15 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     document.body.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden;opacity:1';
     document.documentElement.style.cssText = 'margin:0;padding:0;width:100%;height:100%;overflow:hidden';
 
+    // Notify parent workspace that the frame is themed and ready to reveal.
+    // The normal markdown path does this after theme setup; Slidev must do the
+    // same here because it returns early and never reaches that code.
+    try {
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'VIEWER_RENDERED' }, '*');
+      }
+    } catch { /* cross-origin parent — ignore */ }
+
     await initSlidevViewer({
       rawContent,
       container: document.body,
@@ -671,7 +680,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   }
 
   // Start file tracking for local files
-  if (currentUrl.startsWith('file://')) {
+  if (currentUrl.startsWith('file://') && !document.documentElement.dataset.viewerFilename) {
     void startFileTracking();
 
     // Stop tracking when page unloads

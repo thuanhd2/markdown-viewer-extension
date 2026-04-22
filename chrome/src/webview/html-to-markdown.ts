@@ -31,10 +31,8 @@ function convertHtmlPageToMarkdown(): HtmlConvertedMarkdown | null {
   // can render them directly from document.body.textContent.
   const contentType: string =
     (document as unknown as { contentType?: string }).contentType || '';
-  console.debug('[mv:html2md] contentType:', contentType || '(empty)');
 
   if (contentType && !contentType.includes('text/html')) {
-    console.debug('[mv:html2md] non-HTML content-type, skipping conversion');
     return null;
   }
 
@@ -43,7 +41,6 @@ function convertHtmlPageToMarkdown(): HtmlConvertedMarkdown | null {
   if (!contentType) {
     const kids = Array.from(document.body?.children ?? []);
     if (kids.length === 1 && kids[0].tagName === 'PRE') {
-      console.debug('[mv:html2md] single <pre> body, treating as raw text');
       return null;
     }
   }
@@ -55,7 +52,6 @@ function convertHtmlPageToMarkdown(): HtmlConvertedMarkdown | null {
   let articleTitle = document.title || '';
 
   const isReaderable = isProbablyReaderable(documentClone);
-  console.debug('[mv:html2md] isProbablyReaderable:', isReaderable);
 
   try {
     if (isReaderable) {
@@ -64,10 +60,6 @@ function convertHtmlPageToMarkdown(): HtmlConvertedMarkdown | null {
       if (article) {
         articleContent = article.content;
         if (article.title) articleTitle = article.title;
-        console.debug('[mv:html2md] readability title:', articleTitle, '| content length:', articleContent?.length);
-        // Check if Readability result already contains JSON
-        const rdJsonIdx = articleContent?.indexOf('{"props"') ?? -1;
-        console.debug('[mv:html2md] json in readability output:', rdJsonIdx >= 0 ? articleContent!.slice(rdJsonIdx, rdJsonIdx + 120) : 'none');
       }
     }
   } catch (e) {
@@ -86,7 +78,6 @@ function convertHtmlPageToMarkdown(): HtmlConvertedMarkdown | null {
       documentClone.querySelector('.content') ||
       documentClone.body;
 
-    console.debug('[mv:html2md] fallback container:', mainEl?.tagName, mainEl?.id || mainEl?.className?.slice(0, 40));
     articleContent = mainEl ? mainEl.innerHTML : documentClone.body.innerHTML;
   }
 
@@ -127,11 +118,6 @@ function convertHtmlPageToMarkdown(): HtmlConvertedMarkdown | null {
   });
 
   let markdown = td.turndown(articleContent);
-
-  // Check if JSON survived into markdown output
-  const mdJsonIdx = markdown.indexOf('{"props"');
-  console.debug('[mv:html2md] json in markdown output:', mdJsonIdx >= 0 ? markdown.slice(mdJsonIdx, mdJsonIdx + 120) : 'none');
-  console.debug('[mv:html2md] markdown length:', markdown.length, '| first 200:', markdown.slice(0, 200));
 
   // Clean up: lone dashes / middle-dots on their own line
   markdown = markdown.replace(/^[ \t]*[-·][ \t]*$/gm, '');

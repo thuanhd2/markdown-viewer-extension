@@ -17,7 +17,8 @@ const SUPPORTED_EXTENSIONS = new Set([
   'plantuml', 'puml',
   'vega', 'vl', 'vega-lite',
   'gv', 'dot',
-  'infographic', 'canvas', 'drawio'
+  'infographic', 'canvas', 'drawio',
+  'svg'
 ]);
 
 interface TreeNode {
@@ -140,6 +141,11 @@ function isTextFile(name: string): boolean {
   const ext = name.slice(dot + 1).toLowerCase();
   return !IMAGE_EXTENSIONS.has(ext);
 }
+
+// Image extensions the browser can render natively (shown directly in iframe)
+const PREVIEW_IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg',
+]);
 
 const IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg',
@@ -587,6 +593,13 @@ async function resolveFileFromRoot(path: string): Promise<File | null> {
   } catch { return null; }
 }
 
+// ─── Image preview via markdown pipeline ───
+async function showImagePreview(_file: File, name: string, _ext: string): Promise<void> {
+  // Pass a relative reference so resolveWorkspaceImages in viewer-embed
+  // can resolve it via the parent's File System Access API — no base64 needed.
+  sendToViewer(`![${name}](./${name})`, name + '.md');
+}
+
 // ─── File preview via embedded viewer ───
 function sendToViewer(content: string, filename: string, codeView = false) {
   // Hide the iframe while it navigates + renders. The iframe element's blank
@@ -626,6 +639,13 @@ async function openFile(fileHandle: FileSystemFileHandle) {
   // Save last opened file path
   localStorage.setItem(`workspace-last-file:${rootDirHandle?.name}`, currentFileDir + name);
 
+  const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
+
+  if (PREVIEW_IMAGE_EXTENSIONS.has(ext)) {
+    await showImagePreview(file, name, ext);
+    return;
+  }
+
   if (isSupportedFile(name)) {
     const text = await file.text();
     sendToViewer(text, name);
@@ -635,7 +655,6 @@ async function openFile(fileHandle: FileSystemFileHandle) {
   if (isTextFile(name) && await canPreviewAsText(file)) {
     // Code/text files: wrap in code block using extension as language tag
     const text = await file.text();
-    const ext = name.slice(name.lastIndexOf('.') + 1);
     sendToViewer(`\`\`\`${ext}\n${text.trimEnd()}\n\`\`\``, name, true);
     return;
   }

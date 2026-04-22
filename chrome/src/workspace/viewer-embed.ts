@@ -25,6 +25,7 @@ function onMessage(event: MessageEvent) {
   // Override location-based URL detection by setting a data attribute
   // so the viewer can determine file type from filename
   document.documentElement.dataset.viewerFilename = filename;
+  document.documentElement.dataset.viewerFilePath = `${fileDir || ''}${filename}`;
   if (codeView) {
     document.documentElement.dataset.codeView = '1';
     // Add line numbers after code block is rendered with highlighting

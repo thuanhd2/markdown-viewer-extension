@@ -12,6 +12,11 @@ import type {
  */
 export function getCurrentDocumentUrl(): string {
   // In embedded viewer mode, use the filename from the parent
+  const viewerFilePath = document.documentElement.dataset.viewerFilePath;
+  if (viewerFilePath) {
+    return `file:///${viewerFilePath}`;
+  }
+
   const viewerFilename = document.documentElement.dataset.viewerFilename;
   if (viewerFilename) {
     return `file:///${viewerFilename}`;
