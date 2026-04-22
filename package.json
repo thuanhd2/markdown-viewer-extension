@@ -1,7 +1,7 @@
 {
   "name": "markdown-viewer-extension",
   "displayName": "Markdown Viewer Extension",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Markdown to perfect Word in one click — PlantUML, Mermaid, Vega, drawio, canvas, Infographic, Graphviz, LaTeX (editable), code highlighting, local processing.",
   "type": "module",
   "scripts": {
@@ -57,7 +57,7 @@
     "url": "https://github.com/markdown-viewer/markdown-viewer-extension/issues"
   },
   "dependencies": {
-    "@antv/infographic": "^0.2.16",
+    "@antv/infographic": "^0.2.18",
     "@markdown-viewer/draw-uml": "^1.2.0",
     "@markdown-viewer/drawio2svg": "^1.5.1",
     "@mozilla/readability": "^0.6.0",
