@@ -87,8 +87,8 @@ export class HtmlRenderer extends BaseRenderer {
     
     const svgNS = 'http://www.w3.org/2000/svg';
     // Use a larger canvas so big HTML layouts are less likely to be clipped before detection.
-    const bigWidth = 3600 * scale;
-    const bigHeight = 3600 * scale;
+    const bigWidth = 3500 * scale;
+    const bigHeight = 3500 * scale;
     
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('xmlns', svgNS);
