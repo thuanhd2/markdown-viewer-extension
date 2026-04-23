@@ -852,14 +852,14 @@ html[data-code-view] #markdown-content pre code::before {
   justify-content: center;
   min-height: 120px;
   margin: 20px 0;
-  background: #f8fafc;
-  border: 2px dashed #e2e8f0;
+  background: var(--vscode-editor-background, transparent);
+  border: 2px dashed var(--vscode-widget-border, #d0d7de);
   border-radius: 8px;
 }
 
 .async-placeholder:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: var(--vscode-editor-hoverHighlightBackground, rgba(127, 127, 127, 0.1));
+  border-color: var(--vscode-focusBorder, #9ca3af);
 }
 
 .async-loading {
@@ -879,14 +879,6 @@ html[data-code-view] #markdown-content pre code::before {
 
 /* Dark-theme overrides for the async placeholder — the hard-coded light
    grays above would otherwise show as a bright block inside dark content. */
-:root.dark .async-placeholder {
-  background: #24272c;
-  border-color: #3a3f46;
-}
-:root.dark .async-placeholder:hover {
-  background: #2e3239;
-  border-color: #4a5058;
-}
 :root.dark .async-loading { color: #b4b9c2; }
 :root.dark .async-spinner {
   border-color: #2e3239;
