@@ -152,6 +152,10 @@ markdown-viewer #markdown-wrapper {
   document.head.appendChild(style);
 }
 
+function hasRenderableContent(markdown: string): boolean {
+  return markdown.trim().length > 0;
+}
+
 export function attachMarkdownViewerElementRuntime(
   target: HTMLElement,
   options: MarkdownViewerElementFactoryOptions,
@@ -217,6 +221,12 @@ export function attachMarkdownViewerElementRuntime(
     let frameReady = false;
     let currentValue = target.getAttribute('value') ?? '';
 
+    const setFrameVisible = (visible: boolean): void => {
+      if (!frame) return;
+      frame.style.display = visible ? 'block' : 'none';
+    };
+    setFrameVisible(false);
+
     const postToFrame = (data: unknown): void => {
       if (!frame || !frame.contentWindow || !frameReady) return;
       frame.contentWindow.postMessage(data, '*');
@@ -258,13 +268,16 @@ export function attachMarkdownViewerElementRuntime(
       if (data.type === 'VIEWER_READY') {
         frameReady = true;
         syncUi();
-        if (currentValue.length > 0) {
+        const shouldShow = hasRenderableContent(currentValue);
+        if (shouldShow) {
           enableFloatingToc();
         }
+        setFrameVisible(shouldShow);
         syncRender();
         return;
       }
       if (data.type === 'VIEWER_RENDERED') {
+        setFrameVisible(hasRenderableContent(currentValue));
         // Keep contract parity with mounted viewer mode.
         target.dispatchEvent(new CustomEvent('scrolllinechange', {
           detail: { line: 0 },
@@ -281,7 +294,11 @@ export function attachMarkdownViewerElementRuntime(
         const name = mutation.attributeName;
         if (name === 'value') {
           currentValue = target.getAttribute('value') ?? '';
-          enableFloatingToc();
+          const shouldShow = hasRenderableContent(currentValue);
+          setFrameVisible(shouldShow);
+          if (shouldShow) {
+            enableFloatingToc();
+          }
           syncRender();
           continue;
         }
@@ -299,7 +316,11 @@ export function attachMarkdownViewerElementRuntime(
     return {
       async render(markdown: string): Promise<void> {
         currentValue = markdown;
-        enableFloatingToc();
+        const shouldShow = hasRenderableContent(currentValue);
+        setFrameVisible(shouldShow);
+        if (shouldShow) {
+          enableFloatingToc();
+        }
         syncRender();
       },
       async switchTheme(themeId: string): Promise<void> {
@@ -369,6 +390,18 @@ export function attachMarkdownViewerElementRuntime(
     throw new Error('[element-runtime] markdown-content container not found after shell init');
   }
 
+  const getMountedReaderRoot = (): HTMLElement => {
+    const shell = target.querySelector(':scope > #page-shell') as HTMLElement | null;
+    return shell ?? container;
+  };
+
+  const setMountedReaderVisible = (visible: boolean): void => {
+    const root = getMountedReaderRoot();
+    root.style.display = visible ? '' : 'none';
+  };
+
+  setMountedReaderVisible(false);
+
   const applyUiAttributes = (): void => {
     const pageHeader = target.querySelector('#page-header') as HTMLElement | null;
     const tocDiv = target.querySelector('#table-of-contents') as HTMLElement | null;
@@ -416,6 +449,8 @@ export function attachMarkdownViewerElementRuntime(
 
   const render = async (markdown: string): Promise<void> => {
     currentValue = markdown;
+    const shouldShow = hasRenderableContent(markdown);
+    setMountedReaderVisible(shouldShow);
     await mountedViewer.render(markdown);
     await generateTOC();
     applyUiAttributes();

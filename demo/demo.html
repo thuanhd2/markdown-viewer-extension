@@ -159,6 +159,8 @@
         <button id="checkElement" class="primary">Check Element</button>
         <button id="renderByValue">Set value Attribute</button>
         <button id="renderByMethod">Call render()</button>
+        <button id="patchSection">Patch Section B</button>
+        <button id="appendBlock">Append Block</button>
         <button id="scrollToLine">Set scroll-line</button>
         <button id="jumpAnchor">scrollToAnchor()</button>
         <button id="clearLog">Clear Log</button>
@@ -215,6 +217,7 @@ graph TD
       const viewerEl = document.getElementById('viewer');
       const scrollLineInputEl = document.getElementById('scrollLineInput');
       const anchorInputEl = document.getElementById('anchorInput');
+      let patchVersion = 0;
 
       function setStatus(level, text) {
         statusEl.className = 'status ' + level;
@@ -308,6 +311,69 @@ graph TD
         setStatus('ok', 'value updated');
       }
 
+      function patchSection() {
+        const source = getMarkdownText();
+        const nextVersion = patchVersion + 1;
+        const pattern = /## Section B \{#section-b\}[\s\S]*?(?=\n## |\n# |$)/;
+        const replacement = [
+          '## Section B {#section-b}',
+          '',
+          'Patched block version: ' + String(nextVersion),
+          '',
+          '- update mode: set value',
+          '- expected: update changed block only',
+          '',
+          '```mermaid',
+          'graph TD',
+          '  A[Input] --> B[Patched ' + String(nextVersion) + ']',
+          '  B --> C[Output]',
+          '```',
+          '',
+        ].join('\n');
+
+        const patched = source.match(pattern)
+          ? source.replace(pattern, replacement)
+          : (source + '\n\n' + replacement);
+
+        patchVersion = nextVersion;
+        markdownInputEl.value = patched;
+        viewerEl.setAttribute('value', patched);
+        writeLog('incremental patch applied', {
+          mode: 'replace section',
+          version: patchVersion,
+          beforeLength: source.length,
+          afterLength: patched.length,
+        });
+        setStatus('ok', 'section patched via value');
+      }
+
+      function appendBlock() {
+        const source = getMarkdownText();
+        const nextVersion = patchVersion + 1;
+        const block = [
+          '',
+          '## Appended Block v' + String(nextVersion),
+          '',
+          'Append-only test block for incremental update.',
+          '',
+          '- generated at: ' + new Date().toISOString(),
+          '- patch version: ' + String(nextVersion),
+          '',
+        ].join('\n');
+        const patched = source + block;
+
+        patchVersion = nextVersion;
+        markdownInputEl.value = patched;
+        viewerEl.setAttribute('value', patched);
+        writeLog('incremental patch applied', {
+          mode: 'append block',
+          version: patchVersion,
+          beforeLength: source.length,
+          afterLength: patched.length,
+        });
+        setStatus('ok', 'block appended via value');
+      }
+
       function setScrollLine() {
         const line = Number.parseInt(String(scrollLineInputEl.value || ''), 10);
         if (!Number.isFinite(line)) {
@@ -345,6 +411,8 @@ graph TD
       document.getElementById('checkElement').addEventListener('click', checkElementState);
       document.getElementById('renderByValue').addEventListener('click', renderByValue);
       document.getElementById('renderByMethod').addEventListener('click', renderByMethod);
+      document.getElementById('patchSection').addEventListener('click', patchSection);
+      document.getElementById('appendBlock').addEventListener('click', appendBlock);
       document.getElementById('scrollToLine').addEventListener('click', setScrollLine);
       document.getElementById('jumpAnchor').addEventListener('click', jumpAnchor);
       document.getElementById('clearLog').addEventListener('click', function () {

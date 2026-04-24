@@ -111,6 +111,17 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   const MAX_SIDEBAR_WIDTH = 560;
   let syncResizeHandlePosition: (() => void) | null = null;
 
+  function hasRenderableContent(markdown: string): boolean {
+    return markdown.trim().length > 0;
+  }
+
+  function setMainReaderVisible(visible: boolean): void {
+    const viewerMainColumn = document.getElementById('viewer-main-column') as HTMLElement | null;
+    if (viewerMainColumn) {
+      viewerMainColumn.style.display = visible ? '' : 'none';
+    }
+  }
+
   function constrainSidebarWidth(width: number): number {
     const maxWidth = Math.min(window.innerWidth * 0.5, MAX_SIDEBAR_WIDTH);
     return Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, width));
@@ -687,6 +698,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     initialMaxWidth,
     initialZoom,
   });
+  setMainReaderVisible(false);
   if (!initialTocVisible) {
     document.body.classList.add('toc-hidden');
   }
@@ -728,8 +740,15 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     }
   } catch { /* cross-origin parent \u2014 ignore */ }
 
-  // Wait a bit for DOM to be ready, then start processing
-  setTimeout(async () => {
+  // Wait for two paint frames, then start processing.
+  // This avoids a fixed delay while still letting initial DOM/CSS settle.
+  const waitForNextFrame = (): Promise<void> => {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+  };
+
+  const runInitialRender = async (): Promise<void> => {
     let savedScrollLine = initialState.scrollLine ?? 0;
     let pendingAnchor: string | null = null;
 
@@ -758,7 +777,13 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
     await setupResponsiveToc();
     await setupResponsivePanel();
     await generateGitbookPanel();
-  }, 100);
+  };
+
+  void (async () => {
+    await waitForNextFrame();
+    await waitForNextFrame();
+    await runInitialRender();
+  })();
 
   window.addEventListener('hashchange', () => {
     if (!window.location.hash) return;
@@ -793,6 +818,15 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   async function renderMarkdown(markdown: string, savedScrollLine = 0): Promise<void> {
+    const shouldShow = hasRenderableContent(markdown);
+    let revealObserver: MutationObserver | null = null;
+    const disconnectRevealObserver = (): void => {
+      if (revealObserver) {
+        revealObserver.disconnect();
+        revealObserver = null;
+      }
+    };
+
     let viewer: MarkdownViewerElement;
     try {
       viewer = await getOrCreateMarkdownViewerElement();
@@ -802,6 +836,30 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
         markdownLength: markdown.length,
       });
       throw error;
+    }
+
+    if (!shouldShow) {
+      setMainReaderVisible(false);
+    } else {
+      setMainReaderVisible(false);
+      const contentHost = document.getElementById('markdown-content') as HTMLElement | null;
+      const revealIfHasBlocks = (): void => {
+        if (!contentHost) {
+          return;
+        }
+        if (contentHost.querySelector('.md-block')) {
+          setMainReaderVisible(true);
+          disconnectRevealObserver();
+        }
+      };
+      revealIfHasBlocks();
+      if (contentHost && !contentHost.querySelector('.md-block')) {
+        revealObserver = new MutationObserver(() => revealIfHasBlocks());
+        revealObserver.observe(contentHost, {
+          childList: true,
+          subtree: true,
+        });
+      }
     }
 
     lastScrollLine = savedScrollLine;
@@ -838,6 +896,10 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       });
       throw error;
     } finally {
+      disconnectRevealObserver();
+      if (shouldShow) {
+        setMainReaderVisible(true);
+      }
       hideProcessingIndicator();
     }
   }
