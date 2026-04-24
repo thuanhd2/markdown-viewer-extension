@@ -66,6 +66,12 @@ export function getBlockAtScrollPosition(options: ScrollOptions): { blockId: str
   // Account for fixed elements (e.g., toolbar) covering the viewport top
   const effectiveScrollTop = scrollTop + topOffset;
   
+  // Debug: Log scroll position query
+  const blockCount = blocks.length;
+  console.info(
+    `[LineSync:getBlockAtScrollPosition] scrollTop=${scrollTop.toFixed(1)}, topOffset=${topOffset}, effectiveScrollTop=${effectiveScrollTop.toFixed(1)}, blockCount=${blockCount}`
+  );
+  
   // Find the block containing current scroll position
   let targetBlock: HTMLElement | null = null;
   
@@ -91,6 +97,10 @@ export function getBlockAtScrollPosition(options: ScrollOptions): { blockId: str
   
   const pixelOffset = effectiveScrollTop - blockTop;
   const progress = blockHeight > 0 ? Math.max(0, Math.min(1, pixelOffset / blockHeight)) : 0;
+  
+  console.info(
+    `[LineSync:getBlockAtScrollPosition] Found blockId=${blockId}, blockTop=${blockTop.toFixed(1)}, blockHeight=${blockHeight.toFixed(1)}, pixelOffset=${pixelOffset.toFixed(1)}, progress=${progress.toFixed(3)}`
+  );
   
   return { blockId, progress };
 }
@@ -137,7 +147,14 @@ export function getLineForScrollPosition(
   const pos = getBlockAtScrollPosition(options);
   if (!pos) return null;
   
-  return lineMapper.getLineFromBlockId(pos.blockId, pos.progress);
+  const line = lineMapper.getLineFromBlockId(pos.blockId, pos.progress);
+  
+  // Debug: Log reverse mapping (block → line)
+  console.info(
+    `[LineSync:getLineForScrollPosition] blockId=${pos.blockId}, progress=${pos.progress.toFixed(3)} → line=${line?.toFixed(2) ?? 'null'}`
+  );
+  
+  return line;
 }
 
 /**
@@ -151,17 +168,31 @@ export function scrollToLine(
 ): boolean {
   const { behavior = 'auto' } = options;
   
+  // Debug: Log scroll to line request
+  console.info(`[LineSync:scrollToLine] Requested line=${line}`);
+  
   // Special case: line <= 0 means scroll to top
   if (line <= 0) {
     scrollToPosition(0, behavior, options.scrollContainer);
+    console.info(`[LineSync:scrollToLine] Scrolling to top`);
     return true;
   }
   
   // If no lineMapper, can't scroll to line
-  if (!lineMapper) return false;
+  if (!lineMapper) {
+    console.warn(`[LineSync:scrollToLine] No lineMapper available`);
+    return false;
+  }
   
   const pos = lineMapper.getBlockPositionFromLine(line);
-  if (!pos) return false;
+  if (!pos) {
+    console.warn(`[LineSync:scrollToLine] Block not found for line=${line}`);
+    return false;
+  }
+  
+  console.info(
+    `[LineSync:scrollToLine] Found block - blockId=${pos.blockId}, progress=${pos.progress.toFixed(3)}`
+  );
   
   return scrollToBlock(pos.blockId, pos.progress, options);
 }

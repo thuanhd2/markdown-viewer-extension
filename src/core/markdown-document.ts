@@ -96,7 +96,6 @@ export class MarkdownDocument {
   private blocks: BlockMeta[] = [];
   private blockIdMap: Map<string, number> = new Map(); // blockId -> index for O(1) lookup
   private rawContent: string = '';
-  private normalizedContent: string = '';
   private idCounter: number = 0;
   
   /**
@@ -161,12 +160,11 @@ export class MarkdownDocument {
     return this.rawContent;
   }
 
-  /**
-   * Get normalized content (math blocks expanded)
-   */
-  getNormalizedContent(): string {
-    return this.normalizedContent;
-  }
+
+
+
+
+
 
   /**
    * Find block by line number
@@ -202,7 +200,12 @@ export class MarkdownDocument {
     index: number; 
     progress: number;
   } | null {
-    if (this.blocks.length === 0 || line < 0) return null;
+    if (this.blocks.length === 0 || line < 0) {
+      console.warn(
+        `[LineSync:getLinePosition] Invalid input - line=${line}, blockCount=${this.blocks.length}`
+      );
+      return null;
+    }
 
     // Find the block containing this line
     for (let i = 0; i < this.blocks.length; i++) {
@@ -215,11 +218,20 @@ export class MarkdownDocument {
         const progress = block.lineCount > 0 
           ? Math.max(0, Math.min(1, lineOffset / block.lineCount))
           : 0;
+        
+        console.info(
+          `[LineSync:getLinePosition] Found block[${i}] - startLine=${block.startLine}, lineCount=${block.lineCount}, blockEnd=${blockEnd}, lineOffset=${lineOffset.toFixed(2)}, progress=${progress.toFixed(3)}`
+        );
+        
         return { block, index: i, progress };
       }
     }
 
     // Line is beyond last block - not yet rendered, return null
+    const totalLines = this.getTotalLineCount();
+    console.warn(
+      `[LineSync:getLinePosition] Line ${line} is beyond total document lines (${totalLines})`
+    );
     return null;
   }
 
@@ -274,10 +286,21 @@ export class MarkdownDocument {
    */
   getLineFromBlockId(blockId: string, progress: number = 0): number | null {
     const block = this.getBlockById(blockId);
-    if (!block) return null;
+    if (!block) {
+      console.warn(
+        `[LineSync:getLineFromBlockId] Block not found - blockId=${blockId}`
+      );
+      return null;
+    }
     
     const clampedProgress = Math.max(0, Math.min(1, progress));
-    return block.startLine + clampedProgress * block.lineCount;
+    const resultLine = block.startLine + clampedProgress * block.lineCount;
+    
+    console.info(
+      `[LineSync:getLineFromBlockId] blockId=${blockId}, progress=${progress.toFixed(3)} → startLine=${block.startLine}, lineCount=${block.lineCount}, resultLine=${resultLine.toFixed(2)}, lineSpace=raw`
+    );
+    
+    return resultLine;
   }
 
   /**
@@ -289,7 +312,16 @@ export class MarkdownDocument {
    */
   getBlockPositionFromLine(line: number): { blockId: string; progress: number } | null {
     const pos = this.getLinePosition(line);
-    if (!pos) return null;
+    if (!pos) {
+      console.warn(
+        `[LineSync:getBlockPositionFromLine] No position found for line=${line}`
+      );
+      return null;
+    }
+    
+    console.info(
+      `[LineSync:getBlockPositionFromLine] line=${line} → blockId=${pos.block.id}, progress=${pos.progress.toFixed(3)}, lineSpace=raw`
+    );
     
     return {
       blockId: pos.block.id,
@@ -304,10 +336,10 @@ export class MarkdownDocument {
     const oldBlocks = this.blocks;
     const isFirstRender = oldBlocks.length === 0;
     
-    // Normalize and parse
+    // Parse blocks from raw content
     this.rawContent = markdown;
-    this.normalizedContent = normalizeMathBlocks(markdown);
-    const parsedBlocks = splitMarkdownIntoBlocksWithLines(this.normalizedContent);
+    // Keep line mapping anchored to raw markdown to avoid normalization-induced drift.
+    const parsedBlocks = splitMarkdownIntoBlocksWithLines(this.rawContent);
     
     // Build new block metadata
     const newBlocks: BlockMeta[] = parsedBlocks.map((block, index) => {
@@ -664,7 +696,6 @@ export class MarkdownDocument {
   static fromJSON(data: { blocks: Omit<BlockMeta, 'html' | 'hasPlaceholder'>[]; rawContent: string; idCounter: number }): MarkdownDocument {
     const doc = new MarkdownDocument();
     doc.rawContent = data.rawContent;
-    doc.normalizedContent = normalizeMathBlocks(data.rawContent);
     doc.blocks = data.blocks.map(b => ({ ...b, html: undefined }));
     doc.idCounter = data.idCounter;
     return doc;
