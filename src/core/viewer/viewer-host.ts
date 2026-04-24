@@ -731,7 +731,11 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     // Platform-specific: called after streaming, before async tasks
     // Chrome uses this to update TOC active state
     if (afterRender) {
-      setTimeout(afterRender, 100);
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => afterRender());
+      } else {
+        queueMicrotask(afterRender);
+      }
     }
 
     // Process async tasks (diagrams, charts).

@@ -476,10 +476,20 @@ export class AsyncTaskManager {
     const totalTasks = tasks.length;
     let completedTasks = 0;
 
+    const waitForNextFrame = async (): Promise<void> => {
+      await new Promise<void>((resolve) => {
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => resolve());
+          return;
+        }
+        setTimeout(() => resolve(), 0);
+      });
+    };
+
     const waitForReady = async (task: AsyncTask): Promise<void> => {
       // Check task's own context instead of global aborted flag
       while (task.status === 'fetching' && !task.context.cancelled) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await waitForNextFrame();
       }
     };
 

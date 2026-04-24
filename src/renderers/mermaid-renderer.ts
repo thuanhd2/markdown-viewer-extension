@@ -127,6 +127,69 @@ export class MermaidRenderer extends BaseRenderer {
    * @returns Render result with base64, width, height, format
    */
   async render(code: string, themeConfig: RendererThemeConfig | null): Promise<RenderResult> {
+    const waitForNextTick = async (): Promise<void> => {
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = (): void => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+
+        // Fallback timer is required because rAF may be throttled/suspended
+        // in offscreen/background rendering contexts.
+        const fallback = setTimeout(finish, 16);
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => {
+            clearTimeout(fallback);
+            finish();
+          });
+          return;
+        }
+      });
+    };
+
+    const parseSvgSize = (svgEl: SVGElement): { width: number; height: number } | null => {
+      const viewBox = svgEl.getAttribute('viewBox');
+      if (viewBox) {
+        const parts = viewBox.trim().split(/\s+/);
+        const width = Number.parseFloat(parts[2] || '');
+        const height = Number.parseFloat(parts[3] || '');
+        if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+          return { width, height };
+        }
+      }
+
+      const width = Number.parseFloat(svgEl.getAttribute('width') || '');
+      const height = Number.parseFloat(svgEl.getAttribute('height') || '');
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        return { width, height };
+      }
+
+      return null;
+    };
+
+    const waitForRenderableSvg = async (svgEl: SVGElement, timeoutMs = 1000): Promise<{ width: number; height: number }> => {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        svgEl.getBoundingClientRect();
+        const size = parseSvgSize(svgEl);
+        if (size) {
+          return size;
+        }
+        await waitForNextTick();
+      }
+      throw new Error('Mermaid SVG size is not ready');
+    };
+
+    const waitForFontsReady = async (): Promise<void> => {
+      if (!document.fonts || !document.fonts.ready) return;
+      await Promise.race([
+        document.fonts.ready,
+        new Promise<void>((resolve) => setTimeout(resolve, 800)),
+      ]);
+    };
+
     // Ensure renderer is initialized
     if (!this._initialized) {
       await this.initialize(themeConfig);
@@ -167,33 +230,14 @@ export class MermaidRenderer extends BaseRenderer {
       throw new Error('SVG element not found in rendered content');
     }
 
-    // Give layout engine time to process
-    container.offsetHeight;
-    svgElement.getBoundingClientRect();
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait until SVG reports a valid render size instead of using fixed sleeps.
+    const svgSize = await waitForRenderableSvg(svgElement);
 
-    // Wait for fonts to load
-    if (document.fonts && document.fonts.ready) {
-      await document.fonts.ready;
-    }
+    // Wait for fonts with timeout, to avoid blocking forever in restricted contexts.
+    await waitForFontsReady();
 
-    // Force another reflow
-    container.offsetHeight;
-    svgElement.getBoundingClientRect();
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    // Get SVG dimensions from viewBox or attributes (not getBoundingClientRect which may be affected by CSS)
-    const viewBox = svgElement.getAttribute('viewBox');
-    let captureWidth: number, captureHeight: number;
-
-    if (viewBox) {
-      const parts = viewBox.split(/\s+/);
-      captureWidth = Math.ceil(parseFloat(parts[2]));
-      captureHeight = Math.ceil(parseFloat(parts[3]));
-    } else {
-      captureWidth = Math.ceil(parseFloat(svgElement.getAttribute('width') || '800'));
-      captureHeight = Math.ceil(parseFloat(svgElement.getAttribute('height') || '600'));
-    }
+    const captureWidth = Math.ceil(svgSize.width);
+    const captureHeight = Math.ceil(svgSize.height);
 
     // Get font family from theme config
     const fontFamily = themeConfig?.fontFamily || "'SimSun', 'Times New Roman', Times, serif";
