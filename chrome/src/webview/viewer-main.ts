@@ -411,15 +411,18 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
 
     target.render = async (markdown: string) => {
       const attr = element.getAttribute('scroll-line');
-      const targetLine = attr ? Number.parseInt(attr, 10) : 0;
+      const parsedTargetLine = attr ? Number.parseInt(attr, 10) : undefined;
+      const targetLine = typeof parsedTargetLine === 'number' && Number.isFinite(parsedTargetLine)
+        ? parsedTargetLine
+        : undefined;
       logDebug('adapter.render.start', {
-        targetLine: Number.isFinite(targetLine) ? targetLine : 0,
+        targetLine: targetLine ?? null,
         markdownLength: markdown.length,
       });
       await markdownViewerAdapter?.render(markdown, {
         fileChanged: true,
         forceRender: false,
-        targetLine: Number.isFinite(targetLine) ? targetLine : 0,
+        targetLine,
         zoomLevel: toolbarManager.getZoomLevel() / 100,
       });
       logDebug('adapter.render.done');
@@ -737,7 +740,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   const runInitialRender = async (): Promise<void> => {
-    let savedScrollLine = initialState.scrollLine ?? 0;
+    let savedScrollLine = initialState.scrollLine;
     let pendingAnchor: string | null = null;
 
     // Prefer anchor-based navigation through markdown-viewer API.
@@ -806,40 +809,50 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
   };
 
   async function renderMarkdown(markdown: string, savedScrollLine = 0): Promise<void> {
+    const restoreLine = typeof savedScrollLine === 'number' && Number.isFinite(savedScrollLine) && savedScrollLine > 0
+      ? savedScrollLine
+      : undefined;
+
     let viewer: MarkdownViewerElement;
     try {
       viewer = await getOrCreateMarkdownViewerElement();
     } catch (error) {
       logThenPermissionError('renderMarkdown.getOrCreate.failed', error, {
-        savedScrollLine,
+        savedScrollLine: restoreLine,
         markdownLength: markdown.length,
       });
       throw error;
     }
 
-    lastScrollLine = savedScrollLine;
+    if (restoreLine !== undefined) {
+      lastScrollLine = restoreLine;
+    }
 
     showProcessingIndicator();
     try {
       if (markdownViewerAdapter) {
         logDebug('renderMarkdown.path.adapter', {
-          savedScrollLine,
+          savedScrollLine: restoreLine,
           markdownLength: markdown.length,
         });
-        markdownViewerAdapter.setScrollLine(savedScrollLine);
+        if (restoreLine !== undefined) {
+          markdownViewerAdapter.setScrollLine(restoreLine);
+        }
         await markdownViewerAdapter.render(markdown, {
           fileChanged: true,
           forceRender: false,
-          targetLine: savedScrollLine,
+          targetLine: restoreLine,
           zoomLevel: toolbarManager.getZoomLevel() / 100,
         });
       } else {
         logDebug('renderMarkdown.path.element', {
-          savedScrollLine,
+          savedScrollLine: restoreLine,
           markdownLength: markdown.length,
           renderType: typeof viewer.render,
         });
-        viewer.scrollLine = savedScrollLine;
+        if (restoreLine !== undefined) {
+          viewer.scrollLine = restoreLine;
+        }
         await viewer.render(markdown);
       }
       await generateTOC();
@@ -863,7 +876,7 @@ export async function initializeViewerMain(options: ViewerMainOptions): Promise<
       document.title = filename;
 
       // Update page content with new markdown
-      await renderMarkdown(content, 0);
+      await renderMarkdown(content);
 
       // Save to browser history
       saveToHistory(platform);

@@ -228,7 +228,9 @@ export function attachMarkdownViewerElementRuntime(
     setFrameVisible(false);
 
     const postToFrame = (data: unknown): void => {
-      if (!frame || !frame.contentWindow || !frameReady) return;
+      if (!frame || !frame.contentWindow || !frameReady) {
+        return;
+      }
       frame.contentWindow.postMessage(data, '*');
     };
 
@@ -273,7 +275,9 @@ export function attachMarkdownViewerElementRuntime(
           enableFloatingToc();
         }
         setFrameVisible(shouldShow);
-        syncRender();
+        if (shouldShow) {
+          syncRender();
+        }
         return;
       }
       if (data.type === 'VIEWER_RENDERED') {

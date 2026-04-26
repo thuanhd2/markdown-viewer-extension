@@ -201,9 +201,6 @@ export class MarkdownDocument {
     progress: number;
   } | null {
     if (this.blocks.length === 0 || line < 0) {
-      console.warn(
-        `[LineSync:getLinePosition] Invalid input - line=${line}, blockCount=${this.blocks.length}`
-      );
       return null;
     }
 
@@ -218,20 +215,12 @@ export class MarkdownDocument {
         const progress = block.lineCount > 0 
           ? Math.max(0, Math.min(1, lineOffset / block.lineCount))
           : 0;
-        
-        console.info(
-          `[LineSync:getLinePosition] Found block[${i}] - startLine=${block.startLine}, lineCount=${block.lineCount}, blockEnd=${blockEnd}, lineOffset=${lineOffset.toFixed(2)}, progress=${progress.toFixed(3)}`
-        );
-        
+
         return { block, index: i, progress };
       }
     }
 
     // Line is beyond last block - not yet rendered, return null
-    const totalLines = this.getTotalLineCount();
-    console.warn(
-      `[LineSync:getLinePosition] Line ${line} is beyond total document lines (${totalLines})`
-    );
     return null;
   }
 
@@ -287,18 +276,11 @@ export class MarkdownDocument {
   getLineFromBlockId(blockId: string, progress: number = 0): number | null {
     const block = this.getBlockById(blockId);
     if (!block) {
-      console.warn(
-        `[LineSync:getLineFromBlockId] Block not found - blockId=${blockId}`
-      );
       return null;
     }
     
     const clampedProgress = Math.max(0, Math.min(1, progress));
     const resultLine = block.startLine + clampedProgress * block.lineCount;
-    
-    console.info(
-      `[LineSync:getLineFromBlockId] blockId=${blockId}, progress=${progress.toFixed(3)} → startLine=${block.startLine}, lineCount=${block.lineCount}, resultLine=${resultLine.toFixed(2)}, lineSpace=raw`
-    );
     
     return resultLine;
   }
@@ -313,16 +295,9 @@ export class MarkdownDocument {
   getBlockPositionFromLine(line: number): { blockId: string; progress: number } | null {
     const pos = this.getLinePosition(line);
     if (!pos) {
-      console.warn(
-        `[LineSync:getBlockPositionFromLine] No position found for line=${line}`
-      );
       return null;
     }
-    
-    console.info(
-      `[LineSync:getBlockPositionFromLine] line=${line} → blockId=${pos.block.id}, progress=${pos.progress.toFixed(3)}, lineSpace=raw`
-    );
-    
+
     return {
       blockId: pos.block.id,
       progress: pos.progress,
