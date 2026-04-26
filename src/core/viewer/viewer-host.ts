@@ -663,6 +663,10 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     const taskManager = new AsyncTaskManager(translate);
     currentTaskManagerRef.current = taskManager;
 
+    // First render from an empty container should stay hidden until base
+    // markdown content has been inserted, otherwise users see an empty shell block.
+    const hadContentBeforeRender = container.childNodes.length > 0;
+
     // Determine if we need to clear container
     const shouldClear = fileChanged || forceRender;
 
@@ -681,9 +685,12 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
 
     if (!hasRenderableContent) {
       setContainerVisible(false);
-    } else {
-      // Reveal immediately before rendering starts — never wait for render completion.
+    } else if (hadContentBeforeRender) {
+      // Updating existing content: reveal immediately to avoid flicker.
       setContainerVisible(true);
+    } else {
+      // Initial content paint: keep hidden until first chunk is rendered.
+      setContainerVisible(false);
     }
 
     // Set target line for scroll sync
@@ -742,6 +749,10 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
         scrollController?.onStreamingComplete();
       },
     });
+
+    if (hasRenderableContent && !hadContentBeforeRender) {
+      setContainerVisible(true);
+    }
 
     if (taskManager.isAborted()) {
       return;
