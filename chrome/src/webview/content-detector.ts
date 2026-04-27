@@ -146,22 +146,57 @@ async function detectAndInject(): Promise<void> {
     return;
   }
 
-  // HTML files: ask background to inject element-runtime.js (same pattern as main.js for .md)
-  // Direct call fails because platform/ServiceChannel cannot init inside a content script context
+  // HTML files: only request element-runtime injection if the page actually
+  // contains a <markdown-viewer> tag. Otherwise injecting CSS+JS would have
+  // global side effects (e.g. ui/styles.css sets body{overflow:hidden}) and
+  // break unrelated websites.
   if (matchedExt === '.html') {
-    const request = {
-      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      type: 'INJECT_ELEMENT_RUNTIME',
-      payload: {},
-      timestamp: Date.now(),
-      source: 'content-detector',
+    let injected = false;
+    const requestInject = (): void => {
+      if (injected) return;
+      injected = true;
+      const request = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        type: 'INJECT_ELEMENT_RUNTIME',
+        payload: {},
+        timestamp: Date.now(),
+        source: 'content-detector',
+      };
+      const sendPromise = webExtensionApi.runtime.sendMessage(request);
+      if (sendPromise && typeof sendPromise.then === 'function') {
+        sendPromise.catch(() => {
+          // Ignore errors - fire and forget
+        });
+      }
     };
-    const sendPromise = webExtensionApi.runtime.sendMessage(request);
-    if (sendPromise && typeof sendPromise.then === 'function') {
-      sendPromise.catch(() => {
-        // Ignore errors - fire and forget
-      });
+
+    const hasMarkdownViewer = (): boolean => Boolean(document.querySelector('markdown-viewer'));
+
+    if (hasMarkdownViewer()) {
+      requestInject();
+      return;
     }
+
+    // Watch for late-added <markdown-viewer> elements; inject lazily.
+    const startObserver = (): void => {
+      if (!document.body) {
+        // body not ready yet — wait for DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+        return;
+      }
+      if (hasMarkdownViewer()) {
+        requestInject();
+        return;
+      }
+      const observer = new MutationObserver(() => {
+        if (hasMarkdownViewer()) {
+          observer.disconnect();
+          requestInject();
+        }
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    };
+    startObserver();
     return;
   }
 

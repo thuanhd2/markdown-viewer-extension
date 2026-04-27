@@ -982,10 +982,9 @@ async function ensureOffscreenDocument(): Promise<void> {
 // whether the page is HTML via document.contentType and bails out early
 // if it's a raw text file).
 async function handleElementRuntimeInjection(tabId: number): Promise<void> {
-  await chrome.scripting.insertCSS({
-    target: { tabId },
-    files: ['ui/styles.css'],
-  });
+  // Element runtime renders into an iframe, so the host page does not need
+  // ui/styles.css. Injecting it would set global side effects (e.g.
+  // body{overflow:hidden}) on unrelated websites.
   await chrome.scripting.executeScript({
     target: { tabId },
     files: ['core/element-runtime.js'],

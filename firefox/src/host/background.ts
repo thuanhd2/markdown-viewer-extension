@@ -596,11 +596,9 @@ initGlobalCacheStorage();
 // Handle dynamic content script injection.
 // `fromContextMenu` is true when triggered by the right-click menu so we
 async function handleElementRuntimeInjection(tabId: number): Promise<void> {
-  await browser.scripting.insertCSS({
-    target: { tabId },
-    files: ['/ui/styles.css'],
-    origin: 'USER',
-  });
+  // Element runtime renders into an iframe, so the host page does not need
+  // ui/styles.css. Injecting it would set global side effects (e.g.
+  // body{overflow:hidden}) on unrelated websites.
   await browser.scripting.executeScript({
     target: { tabId },
     files: ['/core/element-runtime.js'],
