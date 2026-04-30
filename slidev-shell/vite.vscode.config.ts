@@ -37,7 +37,9 @@ const slidevDefines = {
 export default defineConfig({
   plugins: [
     vue(),
-    UnoCSS(),
+    UnoCSS({
+      configFile: resolve('./uno.config.ts'),
+    }),
   ],
   define: {
     'process.env.NODE_ENV': '"production"',
@@ -73,7 +75,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../dist/slidev-shell-vscode',
+    outDir: resolve('../dist/slidev-shell-vscode'),
     emptyOutDir: true,
     // Inline ALL assets (KaTeX fonts, images) as data-URIs
     assetsInlineLimit: Infinity,

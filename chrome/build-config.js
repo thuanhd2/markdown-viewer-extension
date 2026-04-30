@@ -153,7 +153,7 @@ export const createBuildConfig = () => {
                 fileCopies.push(...copyDirectory('dist/slidev-shell', 'dist/chrome/slidev-shell'));
                 console.log('📦 Copied dist/slidev-shell → dist/chrome/slidev-shell');
               } else {
-                console.warn('⚠️  dist/slidev-shell not found — run "cd slidev-shell && npm run build" first');
+                console.warn('⚠️  dist/slidev-shell not found — run "npm run build:slidev-shell" first');
               }
 
               // Copy pre-built theme IIFE bundles for dynamic loading

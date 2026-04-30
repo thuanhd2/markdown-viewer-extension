@@ -61,7 +61,9 @@ export default defineConfig({
   plugins: [
     deduplicateKaTeXFonts(),
     vue(),
-    UnoCSS(),
+    UnoCSS({
+      configFile: resolve('./uno.config.ts'),
+    }),
   ],
   define: {
     'process.env.NODE_ENV': '"production"',
@@ -102,7 +104,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../dist/slidev-shell',
+    outDir: resolve('../dist/slidev-shell'),
     emptyOutDir: true,
     rollupOptions: {
       input: resolve('./index.html'),

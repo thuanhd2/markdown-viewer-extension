@@ -48,7 +48,7 @@ async function checkMissingKeys() {
 
 function ensureSlidevAssets() {
   console.log('📦 Building Slidev shell assets...');
-  execSync('npm --prefix slidev-shell run build', { stdio: 'inherit' });
+  execSync('npm run build:slidev-shell', { stdio: 'inherit' });
   execSync('npx tsx slidev-shell/build-themes.ts', { stdio: 'inherit' });
 }
 

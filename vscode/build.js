@@ -308,7 +308,7 @@ function copyAssets() {
     fs.writeFileSync(path.join(outdir, 'webview', 'slidev-shell-inline.html'), slidevInlineHtml);
     console.log('  • slidev-shell-inline.html');
   } else {
-    console.warn('  ⚠️  dist/slidev-shell-vscode not found — run "cd slidev-shell && npx vite build --config vite.vscode.config.ts" first');
+    console.warn('  ⚠️  dist/slidev-shell-vscode not found — run "npm run build:slidev" first');
   }
 
   // Copy settings panel styles
