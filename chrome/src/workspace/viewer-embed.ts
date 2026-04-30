@@ -33,7 +33,11 @@ interface SetThemeMessage {
   themeId?: string;
 }
 
-type ViewerEmbedMessage = RenderFileMessage | SetEmbedUiMessage | ScrollAnchorMessage | SetThemeMessage;
+interface WorkspaceLayoutChangedMessage {
+  type: 'WORKSPACE_LAYOUT_CHANGED';
+}
+
+type ViewerEmbedMessage = RenderFileMessage | SetEmbedUiMessage | ScrollAnchorMessage | SetThemeMessage | WorkspaceLayoutChangedMessage;
 
 let initialized = false;
 let latestFileDir = '';
@@ -47,6 +51,9 @@ let floatingTocPanel: TocPanel | null = null;
 let floatingScrollListener: (() => void) | null = null;
 let floatingContentObserver: MutationObserver | null = null;
 let floatingUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+let resizeWheelFallbackArmed = false;
+let wrapperInteractionFixesAttached = false;
+let handlingManualWheelScroll = false;
 
 // Inject embed-mode CSS when loaded with ?embed=1 (from element.ts custom element iframe).
 // This hides the toolbar and shifts the TOC panel up so it fills the full iframe height.
@@ -150,6 +157,82 @@ function destroyFloatingTocPanel(): void {
     floatingScrollListener = null;
   }
   if (floatingTocPanel) { floatingTocPanel.dispose(); floatingTocPanel = null; }
+}
+
+function normalizeWheelDelta(event: WheelEvent, wrapper: HTMLElement): number {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    return event.deltaY * 16;
+  }
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return event.deltaY * wrapper.clientHeight;
+  }
+  return event.deltaY;
+}
+
+function focusWrapperAfterLayoutChange(): void {
+  const wrapper = document.getElementById('markdown-wrapper') as HTMLElement | null;
+  if (!wrapper) {
+    return;
+  }
+
+  if (!wrapper.hasAttribute('tabindex')) {
+    wrapper.tabIndex = -1;
+  }
+
+  window.focus();
+  wrapper.focus({ preventScroll: true });
+}
+
+function attachWrapperInteractionFixes(): void {
+  const install = () => {
+    const wrapper = document.getElementById('markdown-wrapper') as HTMLElement | null;
+    if (!wrapper || wrapperInteractionFixesAttached) {
+      return;
+    }
+
+    wrapperInteractionFixesAttached = true;
+
+    wrapper.addEventListener('scroll', () => {
+      if (handlingManualWheelScroll) {
+        handlingManualWheelScroll = false;
+        return;
+      }
+
+      resizeWheelFallbackArmed = false;
+    }, { passive: true });
+
+    wrapper.addEventListener('wheel', (event) => {
+      if (!resizeWheelFallbackArmed) {
+        return;
+      }
+
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      const maxScrollTop = Math.max(0, wrapper.scrollHeight - wrapper.clientHeight);
+      if (maxScrollTop <= 0) {
+        return;
+      }
+
+      const beforeScrollTop = wrapper.scrollTop;
+      const nextScrollTop = Math.max(
+        0,
+        Math.min(maxScrollTop, beforeScrollTop + normalizeWheelDelta(event, wrapper))
+      );
+
+      if (Math.abs(nextScrollTop - beforeScrollTop) < 0.5) {
+        return;
+      }
+
+      event.preventDefault();
+      handlingManualWheelScroll = true;
+      wrapper.scrollTop = nextScrollTop;
+    }, { passive: false });
+  };
+
+  requestAnimationFrame(install);
+  window.setTimeout(install, 150);
 }
 
 // ─── Apply embed UI ─────────────────────────────────────────────────────────
@@ -265,6 +348,7 @@ async function renderFile(message: RenderFileMessage): Promise<void> {
         themeConfigRenderer: platform.renderer,
       });
       initialized = true;
+      attachWrapperInteractionFixes();
     }).catch((error) => {
       console.error('[viewer-embed] viewer base init failed', error);
     });
@@ -316,6 +400,14 @@ window.addEventListener('message', (event: MessageEvent) => {
     if (data.themeId) {
       void loadAndApplyTheme(data.themeId);
     }
+    return;
+  }
+
+  if (data.type === 'WORKSPACE_LAYOUT_CHANGED') {
+    resizeWheelFallbackArmed = true;
+    requestAnimationFrame(() => {
+      focusWrapperAfterLayoutChange();
+    });
   }
 });
 

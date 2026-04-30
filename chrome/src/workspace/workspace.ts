@@ -106,6 +106,10 @@ function constrainSidebarWidth(width: number): number {
   return Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, width));
 }
 
+function notifyPreviewLayoutChanged(): void {
+  $previewFrame.contentWindow?.postMessage({ type: 'WORKSPACE_LAYOUT_CHANGED' }, '*');
+}
+
 async function getStoredSidebarWidth(): Promise<number | null> {
   try {
     const result = await webExtensionApi.storage.local.get(['markdownViewerSettings']);
@@ -168,6 +172,9 @@ $resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
     $resizeHandle.classList.remove('active');
     $previewFrame.style.pointerEvents = '';
     void setStoredSidebarWidth($sidebar.offsetWidth);
+    requestAnimationFrame(() => {
+      notifyPreviewLayoutChanged();
+    });
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
   };

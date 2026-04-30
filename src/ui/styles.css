@@ -564,6 +564,10 @@ body.sidebar-resizing {
   scroll-padding-top: 12px;
 }
 
+#markdown-wrapper:focus {
+  outline: none;
+}
+
 /* When TOC is hidden, remove left margin */
 body.toc-hidden #markdown-wrapper {
   margin-left: 0;
