@@ -374,7 +374,7 @@ function generateTableCSS(tableStyle: TableStyleConfig, colorScheme: ColorScheme
 }
 
 /* Table layout: left alignment */
-#markdown-content.table-layout-left table {
+#markdown-content .table-layout-left table {
   margin-left: 0;
   margin-right: auto;
 }
