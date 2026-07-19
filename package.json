@@ -13,6 +13,7 @@
     "build:slidev": "npx vite build --config slidev-shell/vite.vscode.config.ts",
     "build:vscode": "node vscode/build.js",
     "build:obsidian": "node obsidian/build.js",
+    "build:cli": "node cli/build.js",
     "sync:formats": "node scripts/sync-formats.js",
     "build:app": "node mobile/build-app.js all",
     "build:ios": "node mobile/build-app.js ios",
@@ -126,6 +127,7 @@
     "@vscode/vsce": "^3.7.1",
     "knip": "^5.80.0",
     "material-icon-theme": "^5.33.1",
+    "playwright": "^1.49.0",
     "slidev-theme-academic": "^2.1.0",
     "slidev-theme-dracula": "^0.2.0",
     "slidev-theme-frankfurt": "^1.0.8",
@@ -139,6 +141,9 @@
     "typescript": "^5.9.3",
     "vite": "^7.0.3",
     "webextension-polyfill": "^0.12.0"
+  },
+  "bin": {
+    "md-to-docx": "cli/bin/md-to-docx.js"
   },
   "publisher": "xicilion",
   "categories": [

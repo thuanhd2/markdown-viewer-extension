@@ -209,146 +209,171 @@ class DocxExporter {
     this.listConverter.setConvertChildNode((node, listLevel) => this.convertNode(node, {}, listLevel));
   }
 
+  /**
+   * Build the DOCX Document and return it as a Blob without triggering a
+   * browser download. Used by non-browser callers (e.g. the CLI) that need
+   * the raw bytes.
+   *
+   * `baseUrl`, when provided, sets the document context explicitly (used by
+   * the CLI, which does not have a meaningful window.location for the
+   * source Markdown file). Browser callers can omit it and fall back to
+   * window.location.href.
+   */
+  async exportToDocxBlob(
+    markdown: string,
+    filename = 'document.docx',
+    onProgress: DOCXProgressCallback | null = null,
+    baseUrl?: string
+  ): Promise<{ blob: Blob; filename: string }> {
+    if (baseUrl) {
+      this.setBaseUrl(baseUrl);
+    } else if (typeof window !== 'undefined' && window.location?.href) {
+      this.setBaseUrl(window.location.href);
+    }
+
+    // Load export-related settings via platform.settings service
+    try {
+      const settings = globalThis.platform?.settings;
+      if (settings) {
+        const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout] = await Promise.all([
+          settings.get('docxHrDisplay'),
+          settings.get('docxEmojiStyle'),
+          settings.get('frontmatterDisplay'),
+          settings.get('tableMergeEmpty'),
+          settings.get('tableLayout'),
+        ]);
+        this.docxHrDisplay = hrDisplay;
+        this.docxEmojiStyle = emojiStyle;
+        this.frontmatterDisplay = frontmatterDisplay;
+        this.tableMergeEmpty = tableMergeEmpty;
+        this.tableLayout = tableLayout || 'center';
+      } else {
+        this.docxHrDisplay = 'hide';
+        this.frontmatterDisplay = 'hide';
+        this.tableMergeEmpty = true;
+        this.tableLayout = 'center';
+      }
+    } catch {
+      this.docxHrDisplay = 'hide';
+      this.frontmatterDisplay = 'hide';
+      this.tableMergeEmpty = true;
+      this.tableLayout = 'center';
+    }
+
+    const selectedThemeId = await themeManager.loadSelectedTheme();
+    this.themeStyles = await loadThemeForDOCX(selectedThemeId);
+    if (!this.themeStyles) {
+      throw new Error('Failed to load DOCX theme');
+    }
+    this.codeHighlighter = createCodeHighlighter(this.themeStyles);
+
+    this.progressCallback = onProgress;
+    this.totalResources = 0;
+    this.processedResources = 0;
+
+    await this.initializeMathJax();
+
+    const ast = this.parseMarkdown(markdown);
+    this.totalResources = this.countResources(ast);
+
+    // Report initial progress (0%)
+    // Progress is split: 0-20% for rendering, 20-80% for packing, 80-100% for upload
+    if (onProgress) {
+      onProgress(0, 100);
+    }
+
+    // Initialize converters after theme is loaded
+    this.initializeConverters();
+
+    const tRenderStart = performance.now();
+    const docChildren = await this.convertAstToDocx(ast);
+    const renderTime = performance.now() - tRenderStart;
+
+    const paragraphStyles = Object.values(this.themeStyles.paragraphStyles).map((style) => ({
+      id: style.id,
+      ...this.toParagraphStyle(style),
+    }));
+
+    const styles: IStylesOptions = {
+      default: {
+        document: this.toDocumentDefaults(this.themeStyles.default),
+      },
+      paragraphStyles,
+    };
+
+    const doc = new Document({
+      creator: 'Markdown Viewer Extension',
+      lastModifiedBy: 'Markdown Viewer Extension',
+      ...(this.themeStyles?.pageBackground
+        ? { background: { color: this.themeStyles.pageBackground } }
+        : {}),
+      numbering: {
+        config: [
+          {
+            reference: 'default-ordered-list',
+            levels: createNumberingLevels(),
+          },
+        ],
+      },
+      styles,
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: {
+                top: convertInchesToTwip(1),
+                right: convertInchesToTwip(1),
+                bottom: convertInchesToTwip(1),
+                left: convertInchesToTwip(1),
+              },
+            },
+          },
+          children: docChildren,
+        },
+      ],
+    });
+
+    // Phase 2: Packing DOCX (30-85%)
+    // Estimate toBlob time based on render time (empirically ~1.8x)
+    const estimatedToBlobTime = renderTime * 1.8;
+    const t0 = performance.now();
+
+    // Simulate progress with timer, stop at 84% to avoid jumping backward
+    let simulatedProgress = 30;
+    const progressInterval = onProgress ? setInterval(() => {
+      const elapsed = performance.now() - t0;
+      // Calculate expected progress based on elapsed time
+      const expectedProgress = Math.min(84, 30 + (elapsed / estimatedToBlobTime) * 55);
+      if (expectedProgress > simulatedProgress) {
+        simulatedProgress = Math.round(expectedProgress);
+        onProgress!(simulatedProgress, 100);
+      }
+    }, 100) : null;
+
+    const blob = await Packer.toBlob(doc);
+
+    // Clear timer and jump to actual position
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    return { blob, filename };
+  }
+
   async exportToDocx(
     markdown: string,
     filename = 'document.docx',
     onProgress: DOCXProgressCallback | null = null
   ): Promise<DOCXExportResult> {
     try {
-      this.setBaseUrl(window.location.href);
-
-      // Load export-related settings via platform.settings service
-      try {
-        const settings = globalThis.platform?.settings;
-        if (settings) {
-          const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout] = await Promise.all([
-            settings.get('docxHrDisplay'),
-            settings.get('docxEmojiStyle'),
-            settings.get('frontmatterDisplay'),
-            settings.get('tableMergeEmpty'),
-            settings.get('tableLayout'),
-          ]);
-          this.docxHrDisplay = hrDisplay;
-          this.docxEmojiStyle = emojiStyle;
-          this.frontmatterDisplay = frontmatterDisplay;
-          this.tableMergeEmpty = tableMergeEmpty;
-          this.tableLayout = tableLayout || 'center';
-        } else {
-          this.docxHrDisplay = 'hide';
-          this.frontmatterDisplay = 'hide';
-          this.tableMergeEmpty = true;
-          this.tableLayout = 'center';
-        }
-      } catch {
-        this.docxHrDisplay = 'hide';
-        this.frontmatterDisplay = 'hide';
-        this.tableMergeEmpty = true;
-        this.tableLayout = 'center';
-      }
-
-      const selectedThemeId = await themeManager.loadSelectedTheme();
-      this.themeStyles = await loadThemeForDOCX(selectedThemeId);
-      if (!this.themeStyles) {
-        throw new Error('Failed to load DOCX theme');
-      }
-      this.codeHighlighter = createCodeHighlighter(this.themeStyles);
-
-      this.progressCallback = onProgress;
-      this.totalResources = 0;
-      this.processedResources = 0;
-
-      await this.initializeMathJax();
-
-      const ast = this.parseMarkdown(markdown);
-      this.totalResources = this.countResources(ast);
-
-      // Report initial progress (0%)
-      // Progress is split: 0-20% for rendering, 20-80% for packing, 80-100% for upload
-      if (onProgress) {
-        onProgress(0, 100);
-      }
-
-      // Initialize converters after theme is loaded
-      this.initializeConverters();
-
-      const tRenderStart = performance.now();
-      const docChildren = await this.convertAstToDocx(ast);
-      const renderTime = performance.now() - tRenderStart;
-
-      const paragraphStyles = Object.values(this.themeStyles.paragraphStyles).map((style) => ({
-        id: style.id,
-        ...this.toParagraphStyle(style),
-      }));
-
-      const styles: IStylesOptions = {
-        default: {
-          document: this.toDocumentDefaults(this.themeStyles.default),
-        },
-        paragraphStyles,
-      };
-
-      const doc = new Document({
-        creator: 'Markdown Viewer Extension',
-        lastModifiedBy: 'Markdown Viewer Extension',
-        ...(this.themeStyles?.pageBackground
-          ? { background: { color: this.themeStyles.pageBackground } }
-          : {}),
-        numbering: {
-          config: [
-            {
-              reference: 'default-ordered-list',
-              levels: createNumberingLevels(),
-            },
-          ],
-        },
-        styles,
-        sections: [
-          {
-            properties: {
-              page: {
-                margin: {
-                  top: convertInchesToTwip(1),
-                  right: convertInchesToTwip(1),
-                  bottom: convertInchesToTwip(1),
-                  left: convertInchesToTwip(1),
-                },
-              },
-            },
-            children: docChildren,
-          },
-        ],
-      });
-
-      // Phase 2: Packing DOCX (30-85%)
-      // Estimate toBlob time based on render time (empirically ~1.8x)
-      const estimatedToBlobTime = renderTime * 1.8;
-      const t0 = performance.now();
-      
-      // Simulate progress with timer, stop at 84% to avoid jumping backward
-      let simulatedProgress = 30;
-      const progressInterval = onProgress ? setInterval(() => {
-        const elapsed = performance.now() - t0;
-        // Calculate expected progress based on elapsed time
-        const expectedProgress = Math.min(84, 30 + (elapsed / estimatedToBlobTime) * 55);
-        if (expectedProgress > simulatedProgress) {
-          simulatedProgress = Math.round(expectedProgress);
-          onProgress!(simulatedProgress, 100);
-        }
-      }, 100) : null;
-
-      const blob = await Packer.toBlob(doc);
-
-      // Clear timer and jump to actual position
-      if (progressInterval) {
-        clearInterval(progressInterval);
-      }
+      const { blob, filename: fname } = await this.exportToDocxBlob(markdown, filename, onProgress);
 
       // Phase 3: Upload (85-100%)
       if (onProgress) {
         onProgress(85, 100);
       }
 
-      await downloadBlob(blob, filename, onProgress
+      await downloadBlob(blob, fname, onProgress
         ? (uploaded: number, total: number) => {
             // Map upload progress to 85-100%
             const uploadProgress = total > 0 ? (uploaded / total) : 1;
@@ -368,7 +393,7 @@ class DocxExporter {
     } finally {
       this.progressCallback = null;
       this.totalResources = 0;
-      this.processedResources = 0;  
+      this.processedResources = 0;
     }
   }
 
