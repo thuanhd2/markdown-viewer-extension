@@ -15,6 +15,9 @@
     "mobile/src/webview/iframe-render-worker.ts",
     "vscode/src/webview/main.ts",
     "vscode/src/host/extension.ts",
+    "cli/bin/md-to-docx.js",
+    "cli/build.js",
+    "cli/src/headless-entry.ts",
     "scripts/*.js",
     "test/*.test.{js,ts}"
   ],
