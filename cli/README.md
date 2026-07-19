@@ -25,15 +25,14 @@ Or, after `npm link` (or a global install), `md-to-docx` is on `PATH`:
 
 ```
 md-to-docx README.md -o README.docx
-md-to-docx notes.md --theme github-dark --verbose
+md-to-docx notes.md --theme dracula --verbose
 ```
 
 Options:
 
 - `-o, --output <path>` — Output path (defaults to `<input>.docx` next to
   the input file).
-- `--theme <id>` — Theme id (default: `default`; try `github-dark`,
-  `academic`, `minimal`, or any preset under `src/themes/presets/`).
+- `--theme <id>` — Theme id (default: `default`; try `dracula`, `academic`, `minimal`, or any preset under `cli/dist/themes/presets/`).
 - `--verbose` — Mirror browser console output and progress to stderr.
 
 ## Scope

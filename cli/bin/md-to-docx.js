@@ -25,7 +25,7 @@ const USAGE = `Usage: md-to-docx <input.md> [-o <output.docx>] [--theme <id>] [-
 
 Options:
   -o, --output <path>   Output .docx path (default: <input basename>.docx)
-      --theme <id>      Theme id (default: 'default'; e.g. 'github-dark')
+      --theme <id>      Theme id (default: 'default'; e.g. 'dracula', 'academic')
       --verbose         Print progress and diagnostic messages to stderr
   -h, --help            Show this message`;
 
