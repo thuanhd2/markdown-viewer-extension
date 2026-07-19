@@ -77,6 +77,17 @@ async function main() {
   copyDirectory(path.join(projectRoot, 'src/themes'), path.join(outdir, 'themes'));
   console.log('  • cli/dist/themes/');
 
+  // Copy mermaid library (loaded separately via script tag)
+  const mermaidSrc = path.join(projectRoot, 'node_modules/mermaid/dist/mermaid.min.js');
+  if (fs.existsSync(mermaidSrc)) {
+    const libDir = path.join(outdir, 'libs');
+    fs.mkdirSync(libDir, { recursive: true });
+    fs.copyFileSync(mermaidSrc, path.join(libDir, 'mermaid.min.js'));
+    console.log('  • cli/dist/libs/mermaid.min.js');
+  } else {
+    console.warn('  ⚠ mermaid.min.js not found at node_modules/mermaid/dist/mermaid.min.js');
+  }
+
   console.log('\n✅ CLI build complete!\n   Run: node cli/bin/md-to-docx.js <input.md>');
 }
 

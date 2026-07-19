@@ -8,6 +8,8 @@
 
 import DocxExporter from '../../src/exporters/docx-exporter';
 import { installCliPlatform } from './platform-cli';
+import { MermaidRenderer } from '../../src/renderers/mermaid-renderer';
+import type { PluginRenderer } from '../../src/types/plugin';
 
 interface ConvertOptions {
   themeId?: string;
@@ -32,6 +34,54 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
+// Create a PluginRenderer that uses MermaidRenderer to render diagrams in the
+// headless Chromium (full DOM available). This replaces the null renderer
+// that previously caused "Renderer not available" errors for mermaid diagrams.
+function createCliPluginRenderer(): PluginRenderer {
+  const mermaidRenderer = new MermaidRenderer();
+  let initialized = false;
+
+  return {
+    async render(type: string, content: string | object) {
+      if (type !== 'mermaid') {
+        // Other diagram types (vega, plantuml, etc.) are not yet supported in
+        // the CLI — they can be added later when needed.
+        console.warn(`[cli] Renderer for "${type}" is not implemented in the CLI`);
+        return null;
+      }
+
+      const code = typeof content === 'string' ? content : JSON.stringify(content);
+
+      // Initialize mermaid renderer once
+      if (!initialized) {
+        try {
+          await mermaidRenderer.initialize(null);
+          initialized = true;
+        } catch (err) {
+          console.error('[cli] Failed to initialize mermaid renderer:', err);
+          return null;
+        }
+      }
+
+      try {
+        const result = await mermaidRenderer.render(code, null);
+        if (!result) return null;
+
+        return {
+          base64: result.base64,
+          width: result.width,
+          height: result.height,
+          format: result.format,
+          svg: result.svg,
+        };
+      } catch (err) {
+        console.warn(`[cli] Mermaid render failed:`, err);
+        return null;
+      }
+    },
+  };
+}
+
 async function convertMarkdownToDocx(
   markdown: string,
   options: ConvertOptions
@@ -41,7 +91,8 @@ async function convertMarkdownToDocx(
     settingsOverrides: options.themeId ? { themeId: options.themeId } : undefined,
   });
 
-  const exporter = new DocxExporter(null);
+  const pluginRenderer = createCliPluginRenderer();
+  const exporter = new DocxExporter(pluginRenderer);
   const filename = options.filename ?? 'document.docx';
 
   const onProgress = options.verbose
