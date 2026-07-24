@@ -107,6 +107,19 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
       }
     }
 
+    // Calculate equal column widths across usable page width
+    // A4: 12240 twips, 1" margins (1440 twips each), usable = 9360 twips
+    const PAGE_WIDTH_TWIPS = 12240;
+    const MARGIN_TWIPS = 1440;
+    const USABLE_WIDTH = PAGE_WIDTH_TWIPS - 2 * MARGIN_TWIPS;
+
+    const maxColCount = Math.max(
+      1,
+      ...tableRows.map(row => (row.children || []).filter(c => c.type === 'tableCell').length)
+    );
+    const colWidth = Math.floor(USABLE_WIDTH / maxColCount);
+    const columnWidths = new Array(maxColCount).fill(colWidth);
+
     for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
       const row = tableRows[rowIndex];
       const isHeaderRow = rowIndex === 0;
@@ -236,6 +249,7 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
 
             const cellConfig: ITableCellOptions = {
               children: [new Paragraph(paragraphOptions)],
+              width: { size: columnWidths[colIndex], type: WidthType.DXA },
               verticalAlign: VerticalAlignTable.CENTER,
               margins: cellStyles.margins || defaultMargins,
               borders,
@@ -261,11 +275,10 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
 
     return new Table({
       rows: rows,
-      layout: TableLayoutType.AUTOFIT,
+      layout: TableLayoutType.FIXED,
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      columnWidths,
       alignment: currentLayout === 'left' ? AlignmentType.LEFT : AlignmentType.CENTER,
-      width: currentLayout === 'center-full-width'
-        ? { size: 100, type: WidthType.PERCENTAGE }
-        : undefined,
       indent: indentSize ? { size: indentSize, type: WidthType.DXA } : undefined,
     });
   }
