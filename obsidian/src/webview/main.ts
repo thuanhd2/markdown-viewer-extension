@@ -20,6 +20,7 @@ import type { EmojiStyle } from '../../../src/types/docx.js';
 import Localization from '../../../src/utils/localization';
 import themeManager from '../../../src/utils/theme-manager';
 import { loadAndApplyTheme } from '../../../src/utils/theme-to-css';
+import { resolveTocPresentation, type ViewerContainerMode } from '../../../src/core/viewer/viewer-session-contract';
 
 // Shared utilities from viewer-host
 import {
@@ -29,11 +30,14 @@ import {
   renderMarkdownFlow,
   handleThemeSwitchFlow,
   exportDocxFlow,
+  exportHtmlFlow,
 } from '../../../src/core/viewer/viewer-host';
 
 // Settings panel (reused from VSCode)
 import { createSettingsPanel, type SettingsPanel, type ThemeOption, type LocaleOption } from '../../../vscode/src/webview/settings-panel';
 import { createTocPanel, type TocPanel } from '../../../src/ui/toc-panel';
+import { createExportMenu, type ExportMenu } from '../../../src/ui/export-menu';
+import { setupCodeBlockCopy } from '../../../src/ui/code-block-copy';
 import { findHeadingLine } from '../../../src/utils/heading-slug';
 import { printElement } from '../../../src/ui/print-utils';
 import { isDocumentRelativeUrl, isExternalUrl, splitPathAndFragment } from '../../../src/utils/document-url';
@@ -49,8 +53,22 @@ globalThis.platform = platform;
 let rootContainer: HTMLElement | null = null;
 let contentContainer: HTMLElement | null = null;
 
-let currentMarkdown = '';
-let currentFilename = '';
+interface CurrentDocumentState {
+  sourceContent: string;
+  renderedMarkdown: string;
+  filename: string;
+  documentPath: string;
+  baseUri: string;
+}
+
+const currentDocument: CurrentDocumentState = {
+  sourceContent: '',
+  renderedMarkdown: '',
+  filename: '',
+  documentPath: '',
+  baseUri: '',
+};
+
 let currentThemeId = 'default';
 let currentTaskManager: AsyncTaskManager | null = null;
 let currentZoomLevel = 1;
@@ -82,6 +100,8 @@ let renderQueue: Promise<void> = Promise.resolve();
 // UI
 let settingsPanel: SettingsPanel | null = null;
 let tocPanel: TocPanel | null = null;
+let exportMenu: ExportMenu | null = null;
+const VIEWER_CONTAINER_MODE: ViewerContainerMode = 'panel';
 
 // Listener cleanup
 let unsubscribeBridge: (() => void) | null = null;
@@ -91,6 +111,9 @@ const pluginRenderer = createPluginRenderer(platform);
 
 // Scroll sync controller (created after DOM ready)
 let scrollSyncController: ScrollSyncController | null = null;
+
+const RIGHT_OVERLAY_TOP = 40;
+const RIGHT_OVERLAY_RIGHT_MARGIN = 13;
 
 function applyNormalLayoutStyles(container: HTMLElement): void {
   container.style.height = '100%';
@@ -184,6 +207,13 @@ export async function initializeViewer(container: HTMLElement): Promise<void> {
     // Initialize UI (settings panel)
     initializeUI();
 
+    if (contentContainer) {
+      setupCodeBlockCopy({
+        container: contentContainer,
+        translate: (key) => Localization.translate(key),
+      });
+    }
+
     // Apply theme
     try {
       await loadAndApplyTheme(currentThemeId);
@@ -231,10 +261,73 @@ interface UpdateContentPayload {
   scrollLine?: number;
 }
 
+interface OpenDocumentPayload {
+  content: string;
+  filename?: string;
+  documentPath?: string;
+  documentBaseUri?: string;
+  scrollLine?: number;
+}
+
+interface SyncHostUiPayload {
+  themeId?: string;
+}
+
+interface SyncHostNavigationPayload {
+  line: number;
+}
+
+function hasCurrentDocument(): boolean {
+  return currentDocument.filename.length > 0
+    || currentDocument.documentPath.length > 0
+    || currentDocument.sourceContent.length > 0;
+}
+
+function getCurrentDocumentPayload(overrides: {
+  forceRender?: boolean;
+  scrollLine?: number;
+} = {}): UpdateContentPayload {
+  return {
+    content: currentDocument.sourceContent,
+    filename: currentDocument.filename,
+    documentPath: currentDocument.documentPath || undefined,
+    documentBaseUri: currentDocument.baseUri || undefined,
+    ...overrides,
+  };
+}
+
+async function rerenderCurrentDocument(overrides: {
+  forceRender?: boolean;
+  scrollLine?: number;
+} = {}): Promise<void> {
+  if (!hasCurrentDocument()) {
+    return;
+  }
+
+  await handleUpdateContent(getCurrentDocumentPayload(overrides));
+}
+
+function getCurrentScrollLine(): number {
+  return scrollSyncController?.getCurrentLine() ?? 0;
+}
+
+async function rerenderCurrentDocumentPreservingScroll(): Promise<void> {
+  await rerenderCurrentDocument({ forceRender: true, scrollLine: getCurrentScrollLine() });
+}
+
+async function syncHostUi(payload: SyncHostUiPayload): Promise<void> {
+  if (payload.themeId !== undefined) {
+    await handleSetTheme(payload.themeId);
+  }
+}
+
 function handleHostMessage(message: HostMessage): void {
   const { type, payload } = message;
 
   switch (type) {
+    case 'OPEN_DOCUMENT':
+      renderQueue = renderQueue.then(() => handleOpenDocument(payload as OpenDocumentPayload));
+      break;
     case 'UPDATE_CONTENT':
       renderQueue = renderQueue.then(() => handleUpdateContent(payload as UpdateContentPayload));
       break;
@@ -253,15 +346,15 @@ function handleHostMessage(message: HostMessage): void {
     case 'PRINT':
       handlePrint();
       break;
-    case 'SET_THEME':
-      handleSetTheme((payload as { themeId: string }).themeId);
+    case 'SYNC_HOST_UI':
+      renderQueue = renderQueue.then(() => syncHostUi(payload as SyncHostUiPayload));
       break;
     case 'OPEN_SETTINGS':
       handleOpenSettings();
       break;
-    case 'SCROLL_TO_LINE':
+    case 'SYNC_HOST_NAVIGATION':
       if (scrollSyncController && payload) {
-        scrollSyncController.scrollToLine((payload as { line: number }).line);
+        scrollSyncController.scrollToLine((payload as SyncHostNavigationPayload).line);
       }
       break;
     default:
@@ -317,7 +410,18 @@ async function inlineLocalImages(container: HTMLElement): Promise<void> {
 // Content Rendering
 // ============================================================================
 
+async function handleOpenDocument(payload: OpenDocumentPayload): Promise<void> {
+  await handleDocumentUpdate(payload, true);
+}
+
 async function handleUpdateContent(payload: UpdateContentPayload): Promise<void> {
+  await handleDocumentUpdate(payload, false);
+}
+
+async function handleDocumentUpdate(
+  payload: UpdateContentPayload | OpenDocumentPayload,
+  treatAsNewDocument: boolean,
+): Promise<void> {
   const { content, filename, documentPath, documentBaseUri, forceRender, scrollLine } = payload;
   const container = contentContainer;
   if (!container) {
@@ -331,13 +435,20 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
   }
 
   const newFilename = filename || 'document.md';
-  const fileChanged = currentFilename !== newFilename;
+  const nextDocumentPath = documentPath || '';
+  const documentKey = nextDocumentPath || newFilename;
+  const fileChanged = treatAsNewDocument || currentDocument.documentPath !== nextDocumentPath || currentDocument.filename !== newFilename;
 
-  currentMarkdown = content;
-  currentFilename = newFilename;
+  currentDocument.sourceContent = content;
+  currentDocument.filename = newFilename;
+  currentDocument.documentPath = nextDocumentPath;
+  currentDocument.baseUri = documentBaseUri || '';
+  currentDocument.renderedMarkdown = content;
 
   // ── Slidev mode: .slides.md files render as presentations ────────────
-  if (newFilename.endsWith('.slides.md')) {
+  const lowerFilename = newFilename.toLowerCase();
+  const isSlidevByExtension = lowerFilename.endsWith('.slides.md');
+  if (isSlidevByExtension) {
     isSlidevMode = true;
     tocPanel?.setHeadings([]);
 
@@ -417,9 +528,9 @@ async function handleUpdateContent(payload: UpdateContentPayload): Promise<void>
   }
 
   const wrappedContent = wrapFileContent(content, newFilename);
-  currentMarkdown = wrappedContent;
+  currentDocument.renderedMarkdown = wrappedContent;
 
-  setCurrentFileKey(newFilename);
+  setCurrentFileKey(documentKey);
 
   // Create scroll controller lazily
   if (!scrollSyncController) {
@@ -521,7 +632,7 @@ function scrollToHeadingById(headingId: string): void {
   const targetTop = targetRect.top - wrapperRect.top + wrapper.scrollTop;
   wrapper.scrollTo({
     top: Math.max(0, targetTop),
-    behavior: 'smooth',
+    behavior: 'auto',
   });
 }
 
@@ -538,14 +649,7 @@ async function handleSetTheme(themeId: string): Promise<void> {
       applyTheme: loadAndApplyTheme,
       saveTheme: (id) => themeManager.saveSelectedTheme(id),
       rerender: async (scrollLine) => {
-        if (currentMarkdown) {
-          await handleUpdateContent({
-            content: currentMarkdown,
-            filename: currentFilename,
-            forceRender: true,
-            scrollLine,
-          });
-        }
+        await rerenderCurrentDocument({ forceRender: true, scrollLine });
       },
     });
     obsidianBridge.postMessage('THEME_CHANGED', { themeId });
@@ -560,11 +664,11 @@ async function handleSetTheme(themeId: string): Promise<void> {
 
 async function handleExportDocx(): Promise<void> {
   await exportDocxFlow({
-    markdown: currentMarkdown,
-    filename: currentFilename,
+    markdown: currentDocument.renderedMarkdown,
+    filename: currentDocument.filename,
     renderer: pluginRenderer,
     onProgress: (completed, total) => {
-      obsidianBridge.postMessage('EXPORT_PROGRESS', { completed, total, phase: 'processing' });
+      obsidianBridge.postMessage('EXPORT_PROGRESS', { completed, total, phase: 'processing', format: 'docx' });
     },
     onSuccess: (filename) => {
       obsidianBridge.postMessage('EXPORT_DOCX_RESULT', { success: true, filename });
@@ -575,12 +679,40 @@ async function handleExportDocx(): Promise<void> {
   });
 }
 
+async function handleExportHtml(): Promise<void> {
+  const page = rootContainer?.querySelector('#markdown-page') as HTMLElement | null;
+  if (!page) {
+    return;
+  }
+
+  await exportHtmlFlow({
+    container: page,
+    filename: currentDocument.filename,
+    title: currentDocument.filename || document.title || 'Markdown Viewer',
+    platform,
+    onProgress: (completed, total, phase) => {
+      obsidianBridge.postMessage('EXPORT_PROGRESS', {
+        completed,
+        total,
+        phase: phase || 'processing',
+        format: 'html',
+      });
+    },
+    onSuccess: (filename) => {
+      obsidianBridge.postMessage('EXPORT_HTML_RESULT', { success: true, filename });
+    },
+    onError: (error) => {
+      obsidianBridge.postMessage('EXPORT_HTML_RESULT', { success: false, error });
+    },
+  });
+}
+
 async function handlePrint(): Promise<void> {
   const page = rootContainer?.querySelector('#markdown-page') as HTMLElement | null;
   if (!page) {
     return;
   }
-  await printElement(page, currentFilename || document.title || 'Markdown Viewer');
+  await printElement(page, currentDocument.filename || document.title || 'Markdown Viewer');
 }
 
 // ============================================================================
@@ -592,19 +724,13 @@ function handleOpenSettings(): void {
     if (settingsPanel.isVisible()) {
       settingsPanel.hide();
     } else {
-      settingsPanel.showAtPosition(window.innerWidth - 300, 40);
+      settingsPanel.showAtPosition(0, RIGHT_OVERLAY_TOP);
     }
   }
 }
 
 function handleOpenExportMenu(): void {
-  handleExportDocx().catch((error) => {
-    console.error('[MV Viewer] DOCX export unhandled error:', error);
-    obsidianBridge.postMessage('EXPORT_DOCX_RESULT', {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
+  exportMenu?.showAtPosition(0, RIGHT_OVERLAY_TOP);
 }
 
 // ============================================================================
@@ -627,7 +753,7 @@ function initializeUI(): void {
         obsidianBridge.postMessage('OPEN_URL', { url: href });
       } else if (href.startsWith('#')) {
         const el = document.getElementById(decodeURIComponent(href.slice(1)));
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        if (el) el.scrollIntoView({ behavior: 'auto' });
       } else {
         const { path, fragment } = splitPathAndFragment(href);
         if (fragment !== undefined) {
@@ -641,6 +767,8 @@ function initializeUI(): void {
   }
 
   // Settings panel
+  const usesFloatingToc = resolveTocPresentation(VIEWER_CONTAINER_MODE) === 'floating';
+
   settingsPanel = createSettingsPanel({
     currentTheme: currentThemeId,
     currentLocale: savedSettings.locale,
@@ -648,7 +776,7 @@ function initializeUI(): void {
     docxEmojiStyle: savedSettings.docxEmojiStyle as EmojiStyle,
     frontmatterDisplay: savedSettings.frontmatterDisplay as FrontmatterDisplay,
     tableMergeEmpty: savedSettings.tableMergeEmpty,
-    tableLayout: savedSettings.tableLayout as 'left' | 'center',
+    tableLayout: savedSettings.tableLayout as 'left' | 'center' | 'center-full-width',
     onThemeChange: async (themeId) => {
       await handleSetTheme(themeId);
     },
@@ -658,9 +786,7 @@ function initializeUI(): void {
       settingsPanel?.updateLabels();
       tocPanel?.updateLocalization();
       await loadThemesForSettings();
-      if (currentMarkdown) {
-        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename });
-      }
+      await rerenderCurrentDocument();
     },
     onDocxHrDisplayChange: async (display) => {
       await platform.settings.set('docxHrDisplay', display);
@@ -670,24 +796,15 @@ function initializeUI(): void {
     },
     onFrontmatterDisplayChange: async (display) => {
       await platform.settings.set('frontmatterDisplay', display);
-      if (currentMarkdown) {
-        const scrollLine = scrollSyncController?.getCurrentLine() ?? 0;
-        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename, forceRender: true, scrollLine });
-      }
+      await rerenderCurrentDocumentPreservingScroll();
     },
     onTableMergeEmptyChange: async (enabled) => {
       await platform.settings.set('tableMergeEmpty', enabled);
-      if (currentMarkdown) {
-        const scrollLine = scrollSyncController?.getCurrentLine() ?? 0;
-        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename, forceRender: true, scrollLine });
-      }
+      await rerenderCurrentDocumentPreservingScroll();
     },
     onTableLayoutChange: async (layout) => {
       await platform.settings.set('tableLayout', layout);
-      if (currentMarkdown) {
-        const scrollLine = scrollSyncController?.getCurrentLine() ?? 0;
-        await handleUpdateContent({ content: currentMarkdown, filename: currentFilename, forceRender: true, scrollLine });
-      }
+      await rerenderCurrentDocumentPreservingScroll();
     },
     onClearCache: async () => {
       await platform.cache.clear();
@@ -696,18 +813,31 @@ function initializeUI(): void {
     onShow: () => {
       loadCacheStats();
     },
+    rightMargin: RIGHT_OVERLAY_RIGHT_MARGIN,
   });
   if (rootContainer) {
     rootContainer.appendChild(settingsPanel.getElement());
   }
 
-  tocPanel = createTocPanel({
-    onSelectHeading: (headingId) => {
-      scrollToHeadingById(headingId);
-    }
+  exportMenu = createExportMenu({
+    translate: (key) => Localization.translate(key),
+    onExportDocx: () => handleExportDocx(),
+    onExportHtml: () => handleExportHtml(),
+    menuClassName: 'mv-action-menu-panel',
+    rightAligned: true,
+    rightMargin: RIGHT_OVERLAY_RIGHT_MARGIN,
+    container: rootContainer || undefined,
   });
-  if (rootContainer) {
-    rootContainer.appendChild(tocPanel.getElement());
+
+  if (usesFloatingToc) {
+    tocPanel = createTocPanel({
+      onSelectHeading: (headingId) => {
+        scrollToHeadingById(headingId);
+      }
+    });
+    if (rootContainer) {
+      rootContainer.appendChild(tocPanel.getElement());
+    }
   }
 
   const wrapper = rootContainer?.querySelector('#markdown-wrapper');

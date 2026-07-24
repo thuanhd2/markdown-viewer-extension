@@ -345,7 +345,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
     for (int i = 0; i < 20; i++) {
       try {
         final result = await _controller.runJavaScriptReturningResult(
-          'typeof window.loadMarkdown',
+          'typeof window.openDocument',
         );
 
         if (result.toString().contains('function')) {
@@ -524,6 +524,10 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
 
         case 'EXPORT_PROGRESS':
           if (payload is Map) {
+            // Ignore late/stale progress events after export has been finalized.
+            if (!_isExporting) {
+              break;
+            }
             final completed = payload['completed'] as int? ?? 0;
             final total = payload['total'] as int? ?? 0;
             final phase = payload['phase'] as String? ?? 'processing';
@@ -1057,17 +1061,17 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       // which may lag behind when settings page updates theme asynchronously.
       final escapedTheme = _escapeJs(settingsService.theme);
       
-      // Call loadMarkdown with object payload (filePath used by FileStateService)
+      // Use OPEN_DOCUMENT-shaped host API so mobile aligns with the newer viewer contract.
       await _controller.runJavaScript("""
-        if(window.loadMarkdown){
-          window.loadMarkdown({
+        if(window.openDocument){
+          window.openDocument({
             content: '$escaped',
             filename: '$filename',
             filePath: '$escapedFilePath',
             themeId: '$escapedTheme'
           });
         }else{
-          console.error('loadMarkdown not defined');
+          console.error('openDocument not defined');
         }
       """);
       setState(() {
@@ -1238,7 +1242,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       final escapedThemeId = _escapeJs(themeId);
       
       await _controller.runJavaScript(
-        "if(window.setTheme){window.setTheme('$escapedThemeId');}else{console.error('setTheme not defined');}",
+        "if(window.syncHostUi){window.syncHostUi({themeId:'$escapedThemeId'});}else{console.error('syncHostUi not defined');}",
       );
     } catch (e) {
       debugPrint('[Mobile] Failed to send theme: $e');
@@ -1334,6 +1338,30 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       await _controller.runJavaScript('window.exportDocx()');
     } catch (e) {
       debugPrint('[Mobile] Export DOCX error: $e');
+      _hideExportProgress();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(localization.t('docx_export_failed_default'))),
+        );
+      }
+    }
+  }
+
+  /// Export current file to HTML
+  Future<void> _exportHtml() async {
+    if (!_hasContent) return;
+
+    setState(() {
+      _isExporting = true;
+      _exportProgress = 0;
+      _exportTotal = 0;
+      _exportPhase = 'processing';
+    });
+
+    try {
+      await _controller.runJavaScript('window.exportHtml()');
+    } catch (e) {
+      debugPrint('[Mobile] Export HTML error: $e');
       _hideExportProgress();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1472,7 +1500,7 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
       builder: (context) => _AboutDialog(
         appName: localization.t('extensionName'),
         version: 'v${packageInfo.version}',
-        author: '@xicilion',
+        author: 'https://docu.md',
       ),
     );
   }
@@ -1504,18 +1532,27 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
               // Close drawer first
               _scaffoldKey.currentState?.closeDrawer();
               // Escape id for JavaScript
-              final escapedId = id
-                  .replaceAll('\\', '\\\\')
-                  .replaceAll("'", "\\'");
-              // Scroll to heading with offset for better visibility
+              final escapedId = _escapeJs(id);
+              // Scroll to heading within the active scroll container.
               Future.delayed(const Duration(milliseconds: 100), () {
                 _controller.runJavaScript('''
                   (function() {
                     var el = document.getElementById('$escapedId');
-                    if (el) {
-                      var y = el.getBoundingClientRect().top + window.scrollY - 20;
-                      window.scrollTo({top: y, behavior: 'smooth'});
+                    if (!el) {
+                      return;
                     }
+
+                    var wrapper = document.getElementById('markdown-wrapper');
+                    if (wrapper) {
+                      var wrapperRect = wrapper.getBoundingClientRect();
+                      var elRect = el.getBoundingClientRect();
+                      var y = elRect.top - wrapperRect.top + wrapper.scrollTop - 20;
+                      wrapper.scrollTo({top: Math.max(0, y), behavior: 'auto'});
+                      return;
+                    }
+
+                    var fallbackY = el.getBoundingClientRect().top + window.scrollY - 20;
+                    window.scrollTo({top: fallbackY, behavior: 'auto'});
                   })();
                 ''');
               });
@@ -1636,6 +1673,8 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
         _buildPopupMenuItem('recent', AntIcons.history, localization.t('recent_files')),
         if (_hasContent)
           _buildPopupMenuItem('export_docx', AntIcons.file_word, localization.t('export_docx')),
+        if (_hasContent)
+          _buildPopupMenuItem('export_html', AntIcons.html5, localization.t('export_menu_export_html')),
         const PopupMenuDivider(),
         _buildPopupMenuItem('settings', AntIcons.setting_outline, localization.t('tab_settings')),
         _buildPopupMenuItem('about', AntIcons.info_circle_outline, localization.t('about')),
@@ -1648,6 +1687,9 @@ class _MarkdownViewerHomeState extends State<MarkdownViewerHome> {
           break;
         case 'export_docx':
           _exportDocx();
+          break;
+        case 'export_html':
+          _exportHtml();
           break;
         case 'settings':
           Navigator.of(context).push(

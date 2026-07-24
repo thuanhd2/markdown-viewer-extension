@@ -3,10 +3,10 @@
  * Handles toolbar initialization and button event handlers
  */
 
-import { getFilenameFromURL, getDocumentFilename } from '../../../../src/core/document-utils';
-import { applyZoom as applyZoomCore } from '../../../../src/core/viewer/viewer-host';
+import { getFilenameFromURL, getDocumentFilename, toMarkdownFilename } from '../../../../src/core/document-utils';
+import { applyZoom as applyZoomCore, exportHtmlFlow } from '../../../../src/core/viewer/viewer-host';
 import { createExportMenu } from '../../../../src/ui/export-menu';
-import { printElement } from '../../../../src/ui/print-utils';
+import { printElement, isPrintAvailable, PRINT_BLOCKED_BY_SANDBOX } from '../../../../src/ui/print-utils';
 import type {
   TranslateFunction,
   EscapeHtmlFunction,
@@ -17,6 +17,8 @@ import type {
   ToolbarManagerInstance,
   GenerateToolbarHTMLOptions
 } from '../../../../src/types/index';
+import { createRemarkMode } from '../../../../src/ui/remark-mode';
+import type { RemarkModeController } from '../../../../src/ui/remark-mode';
 
 // SVG icons for different layouts
 export const layoutIcons: Record<string, string> = {
@@ -47,11 +49,19 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     getFileState,
     isMobile,
     rawMarkdown,
+    getRawContent,
     docxExporter,
     cancelScrollRestore,
     updateActiveTocItem,
-    toolbarPrintDisabledTitle,
-    onBeforeZoom
+    onBeforeZoom,
+    onSetTocVisibility,
+    enableSourceToggle,
+    onToggleSourceMode,
+    getSourceMode,
+    isSourceModeActive,
+    enableRemarkMode,
+    getRemarkContainer,
+    getRemarkRawMarkdown,
   } = options;
 
   // Layout configurations
@@ -69,6 +79,34 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
 
   // Global zoom state
   let currentZoomLevel = 100;
+
+  // Remark Mode controller
+  let remarkController: RemarkModeController | null = null;
+  if (enableRemarkMode && getRemarkContainer) {
+    remarkController = createRemarkMode({
+      getContainer: getRemarkContainer,
+      getRawMarkdown: getRemarkRawMarkdown || (() => rawMarkdown),
+      translate,
+      onModeChange: (isActive: boolean) => {
+        const btn = document.getElementById('toggle-remark-btn');
+        if (!btn) return;
+        btn.classList.toggle('remark-active', isActive);
+        const title = isActive
+          ? translate('remark_exit_mode')
+          : translate('remark_mode');
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
+        btn.setAttribute('aria-pressed', String(isActive));
+      },
+      onAnnotationCountChange: (count: number) => {
+        const badge = document.getElementById('remark-count-badge');
+        if (badge) {
+          badge.textContent = count > 0 ? String(count) : '';
+          badge.style.display = count > 0 ? 'flex' : 'none';
+        }
+      },
+    });
+  }
 
   async function exportDocxFromToolbar(): Promise<void> {
     const downloadBtn = document.getElementById('download-btn') as HTMLButtonElement | null;
@@ -140,15 +178,87 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     }
   }
 
+  async function exportHtmlFromToolbar(): Promise<void> {
+    const downloadBtn = document.getElementById('download-btn') as HTMLButtonElement | null;
+    if (!downloadBtn || downloadBtn.disabled) {
+      return;
+    }
+
+    const page = document.getElementById('markdown-page') as HTMLElement | null;
+    if (!page) {
+      return;
+    }
+
+    // Request downloads permission only for remote files (local files use <a download> fallback)
+    if (!window.location.protocol.startsWith('file')) {
+      try {
+        await chrome.runtime.sendMessage({ type: 'REQUEST_DOWNLOADS_PERMISSION' });
+      } catch {
+        // Ignore - background will fall back if permission denied
+      }
+    }
+
+    const originalContent = downloadBtn.innerHTML;
+    let exportError: string | null = null;
+
+    try {
+      downloadBtn.disabled = true;
+      downloadBtn.classList.add('downloading');
+      downloadBtn.setAttribute('data-original-content', originalContent);
+      const progressHTML = `
+        <svg class="progress-circle" width="18" height="18" viewBox="0 0 18 18">
+          <circle class="progress-circle-bg" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+          <circle class="download-progress-circle" cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" fill="none"
+                  stroke-dasharray="43.98" stroke-dashoffset="43.98" transform="rotate(-90 9 9)"/>
+        </svg>
+      `;
+      downloadBtn.innerHTML = progressHTML;
+
+      await exportHtmlFlow({
+        container: page,
+        filename: getFilenameFromURL(),
+        title: document.title || getFilenameFromURL(),
+        platform: globalThis.platform,
+        onProgress: (completed, total) => {
+          const progressCircle = downloadBtn.querySelector('.download-progress-circle');
+          if (progressCircle && total > 0) {
+            const progress = completed / total;
+            const circumference = 43.98;
+            const offset = circumference * (1 - progress);
+            (progressCircle as SVGCircleElement).style.strokeDashoffset = String(offset);
+          }
+        },
+        onError: (error) => {
+          exportError = error;
+        },
+      });
+
+      if (exportError) {
+        throw new Error(exportError);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`Export HTML failed: ${message}`);
+    } finally {
+      const fallbackIcon = `
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+      downloadBtn.innerHTML = downloadBtn.getAttribute('data-original-content') || fallbackIcon;
+      downloadBtn.disabled = false;
+      downloadBtn.classList.remove('downloading');
+      downloadBtn.removeAttribute('data-original-content');
+    }
+  }
+
   const exportMenu = createExportMenu({
     translate,
     onExportDocx: () => exportDocxFromToolbar(),
-    onSaveMarkdown: () => triggerSaveMarkdown(),
+    onExportHtml: () => exportHtmlFromToolbar(),
+    onSaveFile: () => triggerSaveFile(),
     onPrint: () => triggerPrint(),
-    getPrintDisabledTitle: () => {
-      const protocol = document.location.protocol;
-      return (protocol === 'file:' || protocol === 'chrome-extension:') ? null : toolbarPrintDisabledTitle;
-    },
+    getPrintDisabledTitle: () => isPrintAvailable() ? null : translate('toolbar_print_disabled_title'),
   });
 
   function getScrollContainer(): HTMLElement | null {
@@ -228,7 +338,7 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
         cancelScrollRestore();
         const scrollContainer = getScrollContainer();
         if (scrollContainer) {
-          scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+          scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
         }
       });
     }
@@ -249,26 +359,38 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     const tocDiv = document.getElementById('table-of-contents');
     const overlayDiv = document.getElementById('toc-overlay');
 
+    const setTocVisibility = (visible: boolean): void => {
+      if (onSetTocVisibility) {
+        onSetTocVisibility(visible);
+        return;
+      }
+
+      if (!tocDiv || !overlayDiv) {
+        return;
+      }
+
+      tocDiv.classList.toggle('hidden', !visible);
+      document.body.classList.toggle('toc-hidden', !visible);
+      if (isMobile && visible) {
+        overlayDiv.classList.remove('hidden');
+      } else {
+        overlayDiv.classList.add('hidden');
+      }
+
+      saveFileState({
+        tocVisible: visible,
+      });
+    };
+
     if (toggleTocBtn && tocDiv && overlayDiv) {
       toggleTocBtn.addEventListener('click', () => {
         // If TOC has no content (no headings), do nothing
         if (tocDiv.style.display === 'none') {
           return;
         }
-        
-        const willBeHidden = !tocDiv.classList.contains('hidden');
-        tocDiv.classList.toggle('hidden');
-        document.body.classList.toggle('toc-hidden');
-        if (isMobile) {
-          overlayDiv.classList.toggle('hidden');
-        } else {
-          overlayDiv.classList.add('hidden');
-        }
-        
-        // Save TOC visibility state
-        saveFileState({
-          tocVisible: !willBeHidden
-        });
+
+        const nextVisible = tocDiv.classList.contains('hidden');
+        setTocVisibility(nextVisible);
       });
     }
 
@@ -352,6 +474,60 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       })();
     }
 
+    // Source/preview toggle button (.md only)
+    const sourceToggleBtn = document.getElementById('toggle-source-view-btn');
+    if (sourceToggleBtn && enableSourceToggle && onToggleSourceMode && getSourceMode) {
+      const sourceIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M7 6 3 10l4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="m13 6 4 4-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      const previewIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor"><path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z" stroke-width="2"/><circle cx="10" cy="10" r="2" stroke-width="2"/></svg>`;
+
+      const updateSourceToggleUI = (): void => {
+        const sourceMode = getSourceMode();
+        sourceToggleBtn.innerHTML = sourceMode ? previewIcon : sourceIcon;
+        sourceToggleBtn.title = sourceMode ? 'Preview Mode' : 'Source Mode';
+        sourceToggleBtn.setAttribute('aria-label', sourceToggleBtn.title);
+      };
+
+      updateSourceToggleUI();
+      sourceToggleBtn.addEventListener('click', () => {
+        onToggleSourceMode();
+        updateSourceToggleUI();
+        // Exit remark mode when entering source mode
+        if (getSourceMode() && remarkController?.isActive()) {
+          remarkController.exit();
+          updateRemarkToggleUI();
+        }
+      });
+    }
+
+    // Remark Mode toggle button
+    const remarkToggleBtn = document.getElementById('toggle-remark-btn');
+    function updateRemarkToggleUI(): void {
+      if (!remarkToggleBtn) return;
+      const isActive = remarkController?.isActive() ?? false;
+      remarkToggleBtn.classList.toggle('remark-active', isActive);
+      remarkToggleBtn.title = isActive
+        ? translate('remark_exit_mode')
+        : translate('remark_mode');
+      remarkToggleBtn.setAttribute('aria-label', remarkToggleBtn.title);
+      remarkToggleBtn.setAttribute('aria-pressed', String(isActive));
+    }
+
+    if (remarkToggleBtn && remarkController) {
+      // Load persisted annotations on init
+      void remarkController.loadAnnotations();
+      updateRemarkToggleUI();
+      remarkToggleBtn.addEventListener('click', () => {
+        if (remarkController!.isActive()) {
+          remarkController!.exit();
+        } else {
+          // Don't enter remark mode while in source mode
+          if (getSourceMode?.()) return;
+          remarkController!.enter();
+        }
+        updateRemarkToggleUI();
+      });
+    }
+
     const downloadBtn = document.getElementById('download-btn') as HTMLButtonElement | null;
     if (downloadBtn) {
       downloadBtn.addEventListener('click', () => {
@@ -378,29 +554,37 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
     // Print availability is handled by the shared export menu.
   }
 
-  function triggerSaveMarkdown(): void {
-    const filename = getDocumentFilename().replace(/\.[^.]+$/, '') + '.md';
-    const blob = new Blob([rawMarkdown], { type: 'text/markdown;charset=utf-8' });
+  function triggerSaveFile(): void {
+    const filename = toMarkdownFilename(getFilenameFromURL());
+    const fileContent = getRawContent ? getRawContent() : rawMarkdown;
+    const blob = new Blob([fileContent], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
 
   async function triggerPrint(): Promise<void> {
     const contentDiv = document.getElementById('markdown-page') as HTMLElement | null;
-    const protocol = document.location.protocol;
-    if (!contentDiv || (protocol !== 'file:' && protocol !== 'chrome-extension:')) {
+    if (!contentDiv) {
       return;
     }
 
     try {
       await printElement(contentDiv, document.title || getFilenameFromURL());
     } catch (error) {
-      console.error('Print request failed:', error);
-      alert(`Failed to open print preview: ${(error as Error).message}`);
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg === PRINT_BLOCKED_BY_SANDBOX) {
+        alert(translate('toolbar_print_disabled_title'));
+      } else {
+        console.error('Print request failed:', error);
+        alert(`Failed to open print preview: ${errMsg}`);
+      }
     }
   }
 
@@ -413,21 +597,9 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         const tocDiv = document.getElementById('table-of-contents');
-        const overlayDiv = document.getElementById('toc-overlay');
-        if (tocDiv && overlayDiv) {
-          const willBeHidden = !tocDiv.classList.contains('hidden');
-          tocDiv.classList.toggle('hidden');
-          document.body.classList.toggle('toc-hidden');
-          if (isMobile) {
-            overlayDiv.classList.toggle('hidden');
-          } else {
-            overlayDiv.classList.add('hidden');
-          }
-          
-          // Save TOC visibility state
-          saveFileState({
-            tocVisible: !willBeHidden
-          });
+        if (tocDiv) {
+          const nextVisible = tocDiv.classList.contains('hidden');
+          setTocVisibility(nextVisible);
         }
         return;
       }
@@ -435,7 +607,12 @@ export function createToolbarManager(options: ToolbarManagerOptions): ToolbarMan
       // Ctrl/Cmd + S: Download as DOCX
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        void exportDocxFromToolbar();
+        const shouldSaveRawFile = isSourceModeActive ? isSourceModeActive() : Boolean(getSourceMode?.());
+        if (shouldSaveRawFile) {
+          triggerSaveFile();
+        } else {
+          void exportDocxFromToolbar();
+        }
         return;
       }
 
@@ -467,7 +644,9 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
     escapeHtml,
     initialTocClass,
     initialMaxWidth,
-    initialZoom
+    initialZoom,
+    enableSourceToggle,
+    enableRemarkMode,
   } = options;
 
   const toolbarLayoutTitleNormal = translate('toolbar_layout_title_normal');
@@ -476,6 +655,7 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
   const toolbarZoomInTitle = translate('toolbar_zoom_in_title');
   const toolbarDownloadTitle = translate('toolbar_download_title');
   const toolbarPrintTitle = translate('toolbar_print_title');
+  const remarkModeTitle = translate('remark_mode');
   const toolbarToggleGitbookTitle = 'Toggle GitBook Panel';
 
   const layoutTitleAttr = escapeHtml(toolbarLayoutTitleNormal);
@@ -484,6 +664,7 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
   const zoomInTitleAttr = escapeHtml(toolbarZoomInTitle);
   const downloadTitleAttr = escapeHtml(toolbarDownloadTitle);
   const printTitleAttr = escapeHtml(toolbarPrintTitle);
+  const remarkModeTitleAttr = escapeHtml(remarkModeTitle);
   const toggleGitbookTitleAttr = escapeHtml(toolbarToggleGitbookTitle);
 
   return `
@@ -523,8 +704,24 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
               <line x1="3" y1="7" x2="17" y2="7" stroke-width="2"/>
             </svg>
           </button>
+          ${enableSourceToggle ? `
+          <button id="toggle-source-view-btn" class="toolbar-btn" title="Source Mode" aria-label="Source Mode">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+              <path d="M7 6 3 10l4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="m13 6 4 4-4 4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>` : ''}
         </div>
         <div class="toolbar-right">
+          ${enableRemarkMode ? `
+          <div style="position:relative;display:inline-flex;">
+          <button id="toggle-remark-btn" class="toolbar-btn" title="${remarkModeTitleAttr}" aria-label="${remarkModeTitleAttr}" aria-pressed="false">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+              <path d="M13.5 3.5l3 3L7 16H4v-3L13.5 3.5Z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="remark-count-badge" class="remark-count-badge" style="display:none;position:absolute;top:2px;right:2px;background:#6b7280;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px;line-height:1;pointer-events:none;"></span>
+          </div>` : ''}
           <button id="download-btn" class="toolbar-btn toolbar-menu-trigger" title="${downloadTitleAttr}" aria-haspopup="menu" aria-expanded="false">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 16h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -543,7 +740,7 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
       <div id="viewer-main-column">
         <div id="markdown-wrapper">
           <div id="markdown-page" style="max-width: ${initialMaxWidth};">
-            <div id="markdown-content" style="zoom: ${initialZoom / 100}; visibility: hidden;"></div>
+            <div id="markdown-content" style="zoom: ${initialZoom / 100};"></div>
           </div>
         </div>
       </div>
@@ -555,5 +752,6 @@ export function generateToolbarHTML(options: GenerateToolbarHTMLOptions): string
   </div>
   <div id="table-of-contents" class="${initialTocClass}"></div>
   <div id="toc-overlay" class="hidden"></div>
+  <div id="remark-sidebar" class="remark-sidebar remark-sidebar-closed"></div>
 `;
 }

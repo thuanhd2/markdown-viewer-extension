@@ -28,8 +28,8 @@ Google Play Store 拒绝上传使用调试模式签名的 APK/App Bundle。
 #### 3. Gradle 配置更新
 已更新 `build.gradle.kts` 以：
 - 读取 `key.properties` 中的签名配置
-- 使用发布签名配置构建 release 版本
-- 自动对 APK 和 AAB 进行签名
+- 有完整发布签名配置时使用发布签名构建 release
+- 无完整发布签名配置时，release 构建回退到 debug 签名（仅用于本地/测试）
 
 #### 4. 构建命令
 
@@ -38,12 +38,16 @@ Google Play Store 拒绝上传使用调试模式签名的 APK/App Bundle。
 node mobile/build-app.js android
 ```
 
+构建行为：
+- 有证书（`markdown_viewer.keystore` + `key.properties` 完整）：输出 signed APK + signed AAB
+- 无证书：仅输出 release APK，跳过 AAB
+
 或手动构建：
 ```bash
 # APK（可用于直接分发）
 flutter build apk --release
 
-# App Bundle（用于 Play Store）
+# App Bundle（用于 Play Store，需配置发布证书）
 flutter build appbundle --release
 ```
 
@@ -62,7 +66,7 @@ mobile/
 ### 下一步
 1. 确保 `key.properties` 中的密码正确
 2. 运行 `node mobile/build-app.js android` 构建
-3. 输出的 AAB 文件在 `dist/android/` 目录
+3. 若已配置发布证书，AAB 文件会输出到 `dist/android/` 目录
 4. 上传到 Google Play Console
 
 ### 安全建议

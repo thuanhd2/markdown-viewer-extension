@@ -151,9 +151,25 @@
     "message": "Закрыть",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Скопировано",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Копировать код",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Не удалось скопировать",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Просмотреть как Markdown",
     "description": "Context menu item to view any file as markdown"
+  },
+  "contextMenu_viewAsRaw": {
+    "message": "View as Raw",
+    "description": "Context menu item to restore the page to its original state"
   },
   "copy_as_png": {
     "message": "Copy as PNG",
@@ -187,13 +203,17 @@
     "message": "Экспортировать в DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_html": {
+    "message": "Экспортировать в HTML",
+    "description": "Export menu item for exporting to HTML"
+  },
   "export_menu_print_pdf": {
     "message": "Печать в PDF",
     "description": "Export menu item for printing to PDF"
   },
-  "export_menu_save_markdown": {
-    "message": "Сохранить как Markdown",
-    "description": "Export menu item for saving current file as Markdown"
+  "export_menu_save_file": {
+    "message": "Сохранить файл",
+    "description": "Export menu item for saving current file"
   },
   "exporting": {
     "message": "Подготовка документа Word...",
@@ -251,14 +271,6 @@
     "message": "URL скопирован. Вставьте в адресную строку для открытия.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
-  "heading_h2_format": {
-    "message": "Глава {0}",
-    "description": "Format for h2 headings. {0} is the chapter number."
-  },
-  "heading_h2_numerals": {
-    "message": "arabic",
-    "description": "Numeral system for h2: chinese, arabic, roman"
-  },
   "history_clear": {
     "message": "Очистить историю",
     "description": "Кнопка очистить историю"
@@ -303,6 +315,22 @@
     "message": "Язык",
     "description": "Menu item for language"
   },
+  "lightbox_close": {
+    "message": "Закрыть",
+    "description": "Tooltip for closing the diagram lightbox"
+  },
+  "lightbox_fit": {
+    "message": "Подогнать к экрану",
+    "description": "Tooltip for fitting the diagram to the lightbox viewport"
+  },
+  "lightbox_zoom_in": {
+    "message": "Увеличить масштаб",
+    "description": "Tooltip for zooming in in the diagram lightbox"
+  },
+  "lightbox_zoom_out": {
+    "message": "Уменьшить масштаб",
+    "description": "Tooltip for zooming out in the diagram lightbox"
+  },
   "more": {
     "message": "Ещё",
     "description": "More menu tooltip"
@@ -346,6 +374,122 @@
   "recent_files": {
     "message": "Недавние файлы",
     "description": "Title for recent files section"
+  },
+  "remark_add_note": {
+    "message": "Добавить заметку…",
+    "description": "Placeholder and tooltip for adding a remark note"
+  },
+  "remark_cfg_title": {
+    "message": "Режим аннотаций",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Автоудаление пустых заметок",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Закрыть вкладку после копирования",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Цвет по умолчанию",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_font_size": {
+    "message": "Размер шрифта",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Стиль выделения",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Фон",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Рамка",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Подчёркивание",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Волнистый",
+    "description": "Highlight style: wavy underline"
+  },
+  "remark_clear_all": {
+    "message": "Очистить все заметки",
+    "description": "Tooltip for clearing all remarks"
+  },
+  "remark_color_blue": {
+    "message": "Вопрос",
+    "description": "Label for the blue remark category"
+  },
+  "remark_color_green": {
+    "message": "Оставить",
+    "description": "Label for the green remark category"
+  },
+  "remark_color_pink": {
+    "message": "Замечание",
+    "description": "Label for the pink remark category"
+  },
+  "remark_color_yellow": {
+    "message": "Предложение",
+    "description": "Label for the yellow remark category"
+  },
+  "remark_copied": {
+    "message": "Скопировано!",
+    "description": "Temporary success state after copying remarks"
+  },
+  "remark_copy_btn": {
+    "message": "Скопировать заметки",
+    "description": "Button text for copying all remarks"
+  },
+  "remark_copy_failed": {
+    "message": "Не удалось скопировать",
+    "description": "Temporary error state when copying remarks fails"
+  },
+  "remark_copy_tooltip": {
+    "message": "Скопировать все заметки в буфер обмена",
+    "description": "Tooltip for copying all remarks"
+  },
+  "remark_delete": {
+    "message": "Удалить",
+    "description": "Tooltip for deleting a remark"
+  },
+  "remark_deleted": {
+    "message": "Удалено",
+    "description": "Status label shown after a remark is deleted"
+  },
+  "remark_empty_hint": {
+    "message": "Выделите текст, чтобы добавить заметки",
+    "description": "Empty state hint in the remarks sidebar"
+  },
+  "remark_exit_mode": {
+    "message": "Выйти из режима заметок",
+    "description": "Toolbar button title for leaving remark mode"
+  },
+  "remark_export_intro": {
+    "message": "Я просмотрел **{0}** и оставил следующие комментарии:",
+    "description": "Intro line for exported remarks. {0} is the file path or title."
+  },
+  "remark_export_note": {
+    "message": "Примечание",
+    "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_mode": {
+    "message": "Режим заметок",
+    "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_sidebar_title": {
+    "message": "Заметки",
+    "description": "Sidebar title for the remarks panel"
+  },
+  "remark_undo": {
+    "message": "Отменить",
+    "description": "Button text for undoing remark deletion"
   },
   "remove_from_list": {
     "message": "Удалить из списка",
@@ -519,46 +663,6 @@
     "message": "Настройки сохранены",
     "description": "Уведомление об успехе"
   },
-  "settings_support_canvas": {
-    "message": "JSON Canvas диаграммы (.canvas)",
-    "description": "Checkbox label for enabling JSON Canvas file support"
-  },
-  "settings_support_dot": {
-    "message": "Диаграммы Graphviz DOT (.gv)",
-    "description": "Checkbox label for Graphviz DOT format support"
-  },
-  "settings_support_drawio": {
-    "message": "drawio диаграммы (.drawio)",
-    "description": "Checkbox label for enabling drawio file support"
-  },
-  "settings_support_infographic": {
-    "message": "Инфографика (.infographic)",
-    "description": "Checkbox label for Infographic format support"
-  },
-  "settings_support_mermaid": {
-    "message": "Диаграммы Mermaid (.mermaid)",
-    "description": "Checkbox label for Mermaid format support"
-  },
-  "settings_support_plantuml": {
-    "message": "Диаграммы PlantUML (.plantuml, .puml)",
-    "description": "Checkbox label for enabling PlantUML file support"
-  },
-  "settings_support_slidev": {
-    "message": "Slidev slides (.slides.md)",
-    "description": "Checkbox label for enabling Slidev file support"
-  },
-  "settings_support_vega": {
-    "message": "Графики Vega (.vega)",
-    "description": "Checkbox label for Vega format support"
-  },
-  "settings_support_vega_lite": {
-    "message": "Графики Vega-Lite (.vl, .vega-lite)",
-    "description": "Checkbox label for Vega-Lite format support"
-  },
-  "settings_supported_formats_title": {
-    "message": "Поддерживаемые форматы",
-    "description": "Title for supported file formats section in settings"
-  },
   "settings_swap_panel_side": {
     "message": "Swap TOC / file tree side",
     "description": "Checkbox label for swapping TOC and workspace file tree panel side"
@@ -574,6 +678,10 @@
   "settings_table_layout_center": {
     "message": "По центру",
     "description": "Table layout option: center aligned"
+  },
+  "settings_table_layout_full_width": {
+    "message": "Во всю ширину",
+    "description": "Option for centered tables stretched to the full content width"
   },
   "settings_table_layout_left": {
     "message": "Слева",
@@ -636,7 +744,7 @@
     "description": "Подсказка для обычного макета"
   },
   "toolbar_print_disabled_title": {
-    "message": "Печать доступна только для локальных файлов",
+    "message": "Печать заблокирована политикой безопасности страницы (песочница)",
     "description": "Подсказка когда кнопка печати отключена для удаленных файлов"
   },
   "toolbar_print_title": {

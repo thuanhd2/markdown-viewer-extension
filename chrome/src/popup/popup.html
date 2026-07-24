@@ -16,7 +16,7 @@
         <div class="header-text">
           <h1 data-i18n="popup_title" id="extension-title" class="clickable-title">Markdown Viewer</h1>
           <div class="version-row">
-            <span class="version"><span data-i18n="popup_version_label" id="version-text">Version</span> · <a href="https://x.com/xicilion" target="_blank" class="author">@xicilion</a></span>
+            <span class="version"><span data-i18n="popup_version_label" id="version-text">Version</span> · <a href="https://docu.md" target="_blank" class="author">docu.md</a></span>
             <a href="#" id="review-link" class="review-link" title="Rate & Review">
               <span class="star-icon">⭐</span>
               <span data-i18n="popup_review_link">Rate</span>
@@ -71,10 +71,13 @@
       </div>
       <template id="history-item-template">
         <div class="cache-item history-item" data-cache-item="dynamic">
-          <div class="cache-item-key history-item-url"></div>
-          <div class="cache-item-info">
-            <span class="history-item-title"></span>
+          <div class="history-item-main">
+            <div class="cache-item-key history-item-url"></div>
+            <div class="cache-item-info">
+              <span class="history-item-title"></span>
+            </div>
           </div>
+          <button type="button" class="history-item-remove" aria-label="Remove from list">×</button>
           <div class="cache-item-meta history-item-accessed"></div>
         </div>
       </template>
@@ -105,6 +108,7 @@
             <select id="table-layout">
               <option value="left" data-i18n="settings_table_layout_left"></option>
               <option value="center" data-i18n="settings_table_layout_center"></option>
+              <option value="center-full-width" data-i18n="settings_table_layout_full_width"></option>
             </select>
           </div>
 
@@ -170,44 +174,46 @@
         </div>
 
         <div class="info-section">
-          <h3 data-i18n="settings_supported_formats_title"></h3>
-          <div class="format-checkboxes">
+          <h3 data-i18n="remark_cfg_title">Remark Mode</h3>
+          <div style="margin: 10px 0;">
             <label class="checkbox-label">
-              <input type="checkbox" id="support-slidev">
-              <span data-i18n="settings_support_slidev"></span>
+              <input type="checkbox" id="remark-auto-delete-empty" checked>
+              <span data-i18n="remark_cfg_auto_delete">Auto-delete empty remarks</span>
             </label>
+          </div>
+          <div style="margin: 10px 0;">
             <label class="checkbox-label">
-              <input type="checkbox" id="support-mermaid">
-              <span data-i18n="settings_support_mermaid"></span>
+              <input type="checkbox" id="remark-close-after-copy">
+              <span data-i18n="remark_cfg_close_after_copy">Close tab after copy</span>
             </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-plantuml">
-              <span data-i18n="settings_support_plantuml"></span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-vega">
-              <span data-i18n="settings_support_vega"></span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-vega-lite">
-              <span data-i18n="settings_support_vega_lite"></span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-dot">
-              <span data-i18n="settings_support_dot"></span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-infographic">
-              <span data-i18n="settings_support_infographic"></span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-canvas">
-              <span data-i18n="settings_support_canvas"></span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="support-drawio">
-              <span data-i18n="settings_support_drawio"></span>
-            </label>
+          </div>
+          <div style="margin: 10px 0;">
+            <label for="remark-highlight-style" data-i18n="remark_cfg_highlight_style">Highlight style</label>
+            <select id="remark-highlight-style">
+              <option value="background" data-i18n="remark_cfg_style_bg">Background</option>
+              <option value="underline" data-i18n="remark_cfg_style_underline">Underline</option>
+              <option value="wavy" data-i18n="remark_cfg_style_wavy">Wavy</option>
+              <option value="border" data-i18n="remark_cfg_style_border">Border</option>
+            </select>
+          </div>
+          <div style="margin: 10px 0;">
+            <label for="remark-default-color" data-i18n="remark_cfg_default_color">Default color</label>
+            <select id="remark-default-color">
+              <option value="yellow">🟡 Suggestion</option>
+              <option value="green">🟢 Keep</option>
+              <option value="blue">🔵 Question</option>
+              <option value="pink">🩷 Concern</option>
+            </select>
+          </div>
+          <div style="margin: 10px 0;">
+            <label for="remark-font-size" data-i18n="remark_cfg_font_size">Font size</label>
+            <select id="remark-font-size">
+              <option value="12">12px</option>
+              <option value="13" selected>13px</option>
+              <option value="14">14px</option>
+              <option value="15">15px</option>
+              <option value="16">16px</option>
+            </select>
           </div>
         </div>
 

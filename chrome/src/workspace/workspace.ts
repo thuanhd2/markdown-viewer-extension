@@ -5,21 +5,18 @@ import { fileTypeFromBuffer } from 'file-type';
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
 import Localization, { DEFAULT_SETTING_LOCALE } from '../../../src/utils/localization';
 import { applyI18nText } from '../../../src/ui/popup/i18n-helpers';
-import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, getFileIcon } from './file-icons';
+import { ALL_SUPPORTED_EXTENSIONS } from '../../../src/types/formats';
+import { chevronRight, chevronDown, folderClosed, folderOpen, folderPlus, searchIcon, fileSearchIcon, textSearchIcon, arrowLeft, arrowRight, getFileIcon } from './file-icons';
 import themeManager from '../../../src/utils/theme-manager';
+import { createViewerIframeHostBridge } from '../../../src/integration/iframe-viewer-host';
+import type { ViewerIframeMessage } from '../../../src/integration/iframe-viewer-host';
 
 const webExtensionApi = getWebExtensionApi();
 const VIEWER_URL = webExtensionApi.runtime.getURL('ui/workspace/viewer-embed.html');
 
-const SUPPORTED_EXTENSIONS = new Set([
-  'md', 'markdown', 'slides.md',
-  'mermaid', 'mmd',
-  'plantuml', 'puml',
-  'vega', 'vl', 'vega-lite',
-  'gv', 'dot',
-  'infographic', 'canvas', 'drawio',
-  'svg'
-]);
+const SUPPORTED_EXTENSIONS = new Set(
+  ALL_SUPPORTED_EXTENSIONS.map((ext) => ext.slice(1).toLowerCase())
+);
 
 interface TreeNode {
   name: string;
@@ -27,12 +24,29 @@ interface TreeNode {
   handle: FileSystemFileHandle | FileSystemDirectoryHandle;
   path: string;
   children?: TreeNode[];
+  childrenLoaded?: boolean;
+  childrenLoading?: boolean;
 }
 
 interface ContentSearchResult {
   node: TreeNode;
   snippet: string;
+  lineNumber: number;
 }
+
+interface RecentWorkspaceItem {
+  name: string;
+  handle: FileSystemDirectoryHandle;
+  time: number;
+}
+
+interface PendingWorkspaceOpenRequest {
+  workspaceName: string;
+  filePath: string;
+  requestedAt: number;
+}
+
+const PENDING_WORKSPACE_OPEN_KEY = 'markdownViewerPendingWorkspaceOpen';
 
 type SearchMode = 'filename' | 'content';
 
@@ -58,6 +72,11 @@ let currentFileDir = '';
 let swapPanelSide = false;
 let activeFilePath = '';
 let currentSearchQuery = '';
+
+// ─── Navigation history ───
+const navHistory: string[] = [];
+let navIndex = -1;
+let navInProgress = false;
 let workspaceTree: TreeNode[] = [];
 const expandedPaths = new Set<string>();
 let currentSearchMode: SearchMode = 'filename';
@@ -65,6 +84,24 @@ let contentSearchResults: ContentSearchResult[] = [];
 let lastExecutedContentQuery = '';
 let contentSearchInProgress = false;
 let contentSearchRunId = 0;
+const directoryReadCache = new Map<string, Promise<TreeNode[]>>();
+
+function postToPreviewFrame(message: ViewerIframeMessage | { type: string; [key: string]: unknown }): void {
+  $previewFrame.contentWindow?.postMessage(message, '*');
+}
+
+function syncWorkspaceHistoryUiToViewer(): void {
+  postToPreviewFrame({
+    type: 'SYNC_WORKSPACE_HISTORY_UI',
+    visible: navHistory.length > 1,
+    canGoBack: navIndex > 0,
+    canGoForward: navIndex >= 0 && navIndex < navHistory.length - 1,
+  });
+}
+
+const previewFrameBridge = createViewerIframeHostBridge((message) => {
+  postToPreviewFrame(message);
+});
 
 function updateResizeHandlePosition(): void {
   const workspaceWidth = $workspace.clientWidth;
@@ -107,7 +144,56 @@ function constrainSidebarWidth(width: number): number {
 }
 
 function notifyPreviewLayoutChanged(): void {
-  $previewFrame.contentWindow?.postMessage({ type: 'WORKSPACE_LAYOUT_CHANGED' }, '*');
+  previewFrameBridge.syncHostUi({ containerMode: 'browser', layoutChanged: true });
+}
+
+let previewFrameReady = false;
+let previewFrameReadyPromise: Promise<void> | null = null;
+
+function resetPreviewFrameState(): void {
+  previewFrameReady = false;
+  previewFrameReadyPromise = null;
+  previewFrameBridge.reset();
+}
+
+function ensureViewerFrameReady(): Promise<void> {
+  if (previewFrameReady && $previewFrame.src === VIEWER_URL) {
+    return Promise.resolve();
+  }
+
+  if (previewFrameReadyPromise) {
+    return previewFrameReadyPromise;
+  }
+
+  $previewEmpty.style.display = 'none';
+  $previewFrame.style.visibility = '';
+  $previewFrame.style.display = 'block';
+
+  previewFrameReadyPromise = new Promise((resolve) => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== $previewFrame.contentWindow) return;
+      if (event.data?.type !== 'VIEWER_READY') return;
+      window.removeEventListener('message', onMessage);
+      previewFrameReady = true;
+      previewFrameReadyPromise = null;
+      resolve();
+    };
+
+    window.addEventListener('message', onMessage);
+
+    if ($previewFrame.src !== VIEWER_URL) {
+      resetPreviewFrameState();
+      $previewFrame.src = VIEWER_URL;
+      return;
+    }
+
+    previewFrameReady = true;
+    previewFrameReadyPromise = null;
+    window.removeEventListener('message', onMessage);
+    resolve();
+  });
+
+  return previewFrameReadyPromise;
 }
 
 async function getStoredSidebarWidth(): Promise<number | null> {
@@ -213,6 +299,10 @@ const PREVIEW_IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg',
 ]);
 
+const DIRECT_HTML_PREVIEW_EXTENSIONS = new Set([
+  'html', 'htm',
+]);
+
 const IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg',
   'mp3', 'mp4', 'wav', 'ogg', 'webm', 'avi', 'mov',
@@ -259,6 +349,7 @@ async function canPreviewAsText(file: File): Promise<boolean> {
 }
 
 function showBinaryFileMessage(): void {
+  resetPreviewFrameState();
   $previewFrame.src = 'about:blank';
   $previewFrame.style.display = 'none';
   $previewEmpty.style.display = '';
@@ -280,14 +371,55 @@ async function readDirectory(dirHandle: FileSystemDirectoryHandle, parentPath = 
     if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
+  return entries;
+}
 
-  for (const entry of entries) {
-    if (entry.kind === 'directory') {
-      entry.children = await readDirectory(entry.handle as FileSystemDirectoryHandle, entry.path);
+function getCachedDirectoryEntries(dirHandle: FileSystemDirectoryHandle, parentPath = ''): Promise<TreeNode[]> {
+  const key = parentPath;
+  const cached = directoryReadCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = readDirectory(dirHandle, parentPath)
+    .catch((error) => {
+      directoryReadCache.delete(key);
+      throw error;
+    });
+  directoryReadCache.set(key, pending);
+  return pending;
+}
+
+async function collectFileNodesRecursively(
+  dirHandle: FileSystemDirectoryHandle,
+  parentPath: string,
+  shouldCancel: () => boolean,
+): Promise<TreeNode[]> {
+  const files: TreeNode[] = [];
+  const stack: Array<{ dirHandle: FileSystemDirectoryHandle; parentPath: string }> = [
+    { dirHandle, parentPath },
+  ];
+
+  while (stack.length > 0) {
+    if (shouldCancel()) {
+      return [];
+    }
+
+    const current = stack.pop()!;
+    const entries = await getCachedDirectoryEntries(current.dirHandle, current.parentPath);
+    for (const entry of entries) {
+      if (entry.kind === 'file') {
+        files.push(entry);
+      } else {
+        stack.push({
+          dirHandle: entry.handle as FileSystemDirectoryHandle,
+          parentPath: entry.path,
+        });
+      }
     }
   }
 
-  return entries;
+  return files;
 }
 
 // ─── File tree rendering ───
@@ -298,6 +430,71 @@ function normalizeSearchQuery(value: string): string {
 function getParentDirFromPath(path: string): string {
   const slashIndex = path.lastIndexOf('/');
   return slashIndex === -1 ? '' : path.slice(0, slashIndex + 1);
+}
+
+function getAncestorDirectoryPaths(filePath: string): string[] {
+  const segments = filePath.split('/').filter(Boolean);
+  const paths: string[] = [];
+
+  for (let i = 0; i < segments.length - 1; i++) {
+    paths.push(segments.slice(0, i + 1).join('/') + '/');
+  }
+
+  return paths;
+}
+
+async function ensureTreePathExpanded(filePath: string): Promise<void> {
+  if (!rootDirHandle || !filePath) {
+    return;
+  }
+
+  const ancestorPaths = getAncestorDirectoryPaths(filePath);
+  if (ancestorPaths.length === 0) {
+    return;
+  }
+
+  let currentNodes = workspaceTree;
+
+  for (const dirPath of ancestorPaths) {
+    const directoryNode = currentNodes.find((node) => node.kind === 'directory' && node.path === dirPath);
+    if (!directoryNode) {
+      return;
+    }
+
+    expandedPaths.add(dirPath);
+
+    if (!directoryNode.childrenLoaded && !directoryNode.childrenLoading) {
+      directoryNode.childrenLoading = true;
+      try {
+        directoryNode.children = await getCachedDirectoryEntries(directoryNode.handle as FileSystemDirectoryHandle, directoryNode.path);
+        directoryNode.childrenLoaded = true;
+      } catch {
+        directoryNode.children = [];
+        directoryNode.childrenLoaded = true;
+      } finally {
+        directoryNode.childrenLoading = false;
+      }
+    }
+
+    currentNodes = directoryNode.children || [];
+  }
+}
+
+function revealActiveTreeItem(): void {
+  requestAnimationFrame(() => {
+    const activeItem = $fileTree.querySelector('.tree-item.active') as HTMLElement | null;
+    activeItem?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+}
+
+async function syncTreeToActiveFile(filePath: string): Promise<void> {
+  if (!filePath) {
+    return;
+  }
+
+  await ensureTreePathExpanded(filePath);
+  renderTreeView();
+  revealActiveTreeItem();
 }
 
 function nodeNameMatches(node: TreeNode, query: string): boolean {
@@ -324,23 +521,6 @@ function nodeMatchesSearch(node: TreeNode, query: string): boolean {
   return false;
 }
 
-function flattenFileNodes(nodes: TreeNode[]): TreeNode[] {
-  const files: TreeNode[] = [];
-
-  for (const node of nodes) {
-    if (node.kind === 'file') {
-      files.push(node);
-      continue;
-    }
-
-    if (node.children) {
-      files.push(...flattenFileNodes(node.children));
-    }
-  }
-
-  return files;
-}
-
 function extractContentSnippet(content: string, query: string): string {
   const normalizedContent = content.toLowerCase();
   const matchIndex = normalizedContent.indexOf(query);
@@ -363,11 +543,57 @@ function extractContentSnippet(content: string, query: string): string {
   return prefix + rawLine.slice(snippetStart, snippetEnd) + suffix;
 }
 
+function getMatchedLineNumber(content: string, query: string): number {
+  const normalizedContent = content.toLowerCase();
+  const matchIndex = normalizedContent.indexOf(query);
+  if (matchIndex === -1) {
+    return 1;
+  }
+
+  let lineNumber = 1;
+  for (let i = 0; i < matchIndex; i++) {
+    if (content.charCodeAt(i) === 10) {
+      lineNumber += 1;
+    }
+  }
+  return lineNumber;
+}
+
+function appendHighlightedText(container: HTMLElement, text: string, query: string): void {
+  if (!query) {
+    container.textContent = text;
+    return;
+  }
+
+  const normalizedText = text.toLowerCase();
+  const normalizedQuery = query.toLowerCase();
+  let from = 0;
+
+  while (from < text.length) {
+    const matchIndex = normalizedText.indexOf(normalizedQuery, from);
+    if (matchIndex === -1) {
+      container.append(document.createTextNode(text.slice(from)));
+      break;
+    }
+
+    if (matchIndex > from) {
+      container.append(document.createTextNode(text.slice(from, matchIndex)));
+    }
+
+    const mark = document.createElement('mark');
+    mark.className = 'search-highlight';
+    mark.textContent = text.slice(matchIndex, matchIndex + query.length);
+    container.append(mark);
+    from = matchIndex + query.length;
+  }
+}
+
 async function runContentSearch(): Promise<void> {
   const query = currentSearchQuery;
   lastExecutedContentQuery = query;
   contentSearchRunId += 1;
   const runId = contentSearchRunId;
+  let lastRenderAt = 0;
 
   if (!query) {
     contentSearchResults = [];
@@ -381,7 +607,13 @@ async function runContentSearch(): Promise<void> {
   renderTreeView();
 
   const results: ContentSearchResult[] = [];
-  const files = flattenFileNodes(workspaceTree);
+  const files = rootDirHandle
+    ? await collectFileNodesRecursively(rootDirHandle, '', () => runId !== contentSearchRunId)
+    : [];
+
+  if (runId !== contentSearchRunId) {
+    return;
+  }
 
   for (const node of files) {
     if (runId !== contentSearchRunId) {
@@ -402,7 +634,16 @@ async function runContentSearch(): Promise<void> {
       results.push({
         node,
         snippet: extractContentSnippet(text, query),
+        lineNumber: getMatchedLineNumber(text, query),
       });
+
+      const now = Date.now();
+      // Throttle UI updates while still allowing near real-time incremental results.
+      if (now - lastRenderAt >= 120) {
+        contentSearchResults = results.slice();
+        renderTreeView();
+        lastRenderAt = now;
+      }
     } catch {
       // Ignore unreadable files and continue searching.
     }
@@ -431,7 +672,7 @@ function renderContentSearchResults(container: HTMLElement): void {
     return;
   }
 
-  if (contentSearchInProgress) {
+  if (contentSearchInProgress && contentSearchResults.length === 0) {
     const searching = document.createElement('div');
     searching.className = 'tree-empty';
     searching.textContent = Localization.translate('workspace_search_content_searching');
@@ -453,29 +694,36 @@ function renderContentSearchResults(container: HTMLElement): void {
 
     const title = document.createElement('div');
     title.className = 'search-result-title';
-    title.textContent = result.node.name;
+    appendHighlightedText(title, result.node.name, currentSearchQuery);
     item.appendChild(title);
 
     const path = document.createElement('div');
     path.className = 'search-result-path';
-    path.textContent = result.node.path;
+    path.textContent = `${result.node.path}:${result.lineNumber}`;
     item.appendChild(path);
 
     if (result.snippet) {
       const snippet = document.createElement('div');
       snippet.className = 'search-result-snippet';
-      snippet.textContent = result.snippet;
+      appendHighlightedText(snippet, result.snippet, currentSearchQuery);
       item.appendChild(snippet);
     }
 
     item.addEventListener('click', () => {
       activeFilePath = result.node.path;
       currentFileDir = getParentDirFromPath(result.node.path);
-      renderTreeView();
-      openFile(result.node.handle as FileSystemFileHandle);
+      void syncTreeToActiveFile(result.node.path);
+      openFile(result.node.handle as FileSystemFileHandle, { targetLine: Math.max(0, result.lineNumber - 1) });
     });
 
     container.appendChild(item);
+  }
+
+  if (contentSearchInProgress) {
+    const searchingMore = document.createElement('div');
+    searchingMore.className = 'tree-empty';
+    searchingMore.textContent = Localization.translate('workspace_search_content_searching');
+    container.appendChild(searchingMore);
   }
 }
 
@@ -528,12 +776,28 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0, forceV
         visibleCount += renderTree(node.children, childContainer, depth + 1, forceVisible || isDirectoryMatch);
       }
 
-      item.addEventListener('click', () => {
-        if (expandedPaths.has(node.path)) {
+      item.addEventListener('click', async () => {
+        const isExpanded = expandedPaths.has(node.path);
+        if (isExpanded) {
           expandedPaths.delete(node.path);
-        } else {
-          expandedPaths.add(node.path);
+          renderTreeView();
+          return;
         }
+
+        expandedPaths.add(node.path);
+        if (!node.childrenLoaded && !node.childrenLoading) {
+          node.childrenLoading = true;
+          try {
+            node.children = await getCachedDirectoryEntries(node.handle as FileSystemDirectoryHandle, node.path);
+            node.childrenLoaded = true;
+          } catch {
+            node.children = [];
+            node.childrenLoaded = true;
+          } finally {
+            node.childrenLoading = false;
+          }
+        }
+
         renderTreeView();
       });
     } else {
@@ -549,7 +813,7 @@ function renderTree(nodes: TreeNode[], container: HTMLElement, depth = 0, forceV
       item.addEventListener('click', () => {
         activeFilePath = node.path;
         currentFileDir = getParentDirFromPath(node.path);
-        renderTreeView();
+        void syncTreeToActiveFile(node.path);
         openFile(node.handle as FileSystemFileHandle);
       });
     }
@@ -634,6 +898,33 @@ function toggleSearchMode(): void {
   $fileSearchInput.select();
 }
 
+// ─── Navigation history ───
+function pushNavHistory(filePath: string): void {
+  if (navInProgress) return;
+  if (navHistory[navIndex] === filePath) return;
+  navHistory.splice(navIndex + 1);
+  navHistory.push(filePath);
+  navIndex = navHistory.length - 1;
+  updateNavButtons();
+}
+
+function updateNavButtons(): void {
+  syncWorkspaceHistoryUiToViewer();
+}
+
+async function navigateHistory(index: number): Promise<void> {
+  if (index < 0 || index >= navHistory.length) return;
+  const filePath = navHistory[index];
+  navIndex = index;
+  navInProgress = true;
+  updateNavButtons();
+  try {
+    await navigateToWorkspaceFile(filePath);
+  } finally {
+    navInProgress = false;
+  }
+}
+
 // ─── Resolve relative path against file directory ───
 function resolveRelativePath(fileDir: string, relativePath: string): string {
   const parts = fileDir.split('/').filter(Boolean);
@@ -663,56 +954,46 @@ async function resolveFileFromRoot(path: string): Promise<File | null> {
 async function showImagePreview(_file: File, name: string, _ext: string): Promise<void> {
   // Pass a relative reference so resolveWorkspaceImages in viewer-embed
   // can resolve it via the parent's File System Access API — no base64 needed.
-  sendToViewer(`![${name}](./${name})`, name + '.md');
+  await sendToViewer(`![${name}](./${name})`, name + '.md');
 }
 
 // ─── File preview via embedded viewer ───
-function sendToViewer(content: string, filename: string, codeView = false) {
-  // Keep iframe visible so rendering updates (including TOC generation) are
-  // visible during loading instead of appearing only after full completion.
-  $previewEmpty.style.display = 'none';
-  $previewFrame.style.visibility = '';
-  $previewFrame.style.display = 'block';
-  $previewFrame.src = VIEWER_URL;
+async function sendToViewer(content: string, filename: string, codeView = false, targetLine?: number, workspaceFilePath?: string) {
+  await ensureViewerFrameReady();
 
-  const onMessage = (event: MessageEvent) => {
-    if (event.source !== $previewFrame.contentWindow) return;
-    if (event.data?.type === 'VIEWER_READY') {
-      $previewFrame.contentWindow!.postMessage({
-        type: 'RENDER_FILE',
-        content,
-        filename,
-        fileDir: currentFileDir,
-        codeView,
-      }, '*');
-      void postThemeToViewer();
-      return;
-    }
-    if (event.data?.type === 'VIEWER_RENDERED') {
-      window.removeEventListener('message', onMessage);
-    }
-  };
-  window.addEventListener('message', onMessage);
+  const nextWorkspaceFilePath = workspaceFilePath || '';
+  previewFrameBridge.syncDocument({
+    documentKey: nextWorkspaceFilePath || filename,
+    content,
+    filename,
+    fileDir: currentFileDir,
+    workspaceName: rootDirHandle?.name || '',
+    workspaceFilePath: nextWorkspaceFilePath,
+    codeView,
+    targetLine,
+  });
+  void postHostUiToViewer();
 }
 
-async function postThemeToViewer(themeId?: string): Promise<void> {
+async function postHostUiToViewer(input: { themeId?: string } = {}): Promise<void> {
+  const { themeId } = input;
   const targetThemeId = themeId ?? await themeManager.loadSelectedTheme();
-  if (!targetThemeId || !$previewFrame.contentWindow) {
-    return;
-  }
-
-  $previewFrame.contentWindow.postMessage({
-    type: 'SET_THEME',
+  previewFrameBridge.syncHostUi({
+    containerMode: 'browser',
     themeId: targetThemeId,
-  }, '*');
+  });
+  syncWorkspaceHistoryUiToViewer();
 }
 
-async function openFile(fileHandle: FileSystemFileHandle) {
+async function openFile(fileHandle: FileSystemFileHandle, options?: { targetLine?: number }) {
   const file = await fileHandle.getFile();
   const name = fileHandle.name;
+  const workspaceFilePath = currentFileDir + name;
+
+  pushNavHistory(workspaceFilePath);
 
   // Save last opened file path
-  sessionStorage.setItem(`workspace-last-file:${rootDirHandle?.name}`, currentFileDir + name);
+  sessionStorage.setItem(`workspace-last-file:${rootDirHandle?.name}`, workspaceFilePath);
 
   const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
 
@@ -721,16 +1002,25 @@ async function openFile(fileHandle: FileSystemFileHandle) {
     return;
   }
 
+  if (DIRECT_HTML_PREVIEW_EXTENSIONS.has(ext)) {
+    $previewEmpty.style.display = 'none';
+    $previewFrame.style.display = 'block';
+    resetPreviewFrameState();
+    $previewFrame.src = URL.createObjectURL(file);
+    return;
+  }
+
   if (isSupportedFile(name)) {
     const text = await file.text();
-    sendToViewer(text, name);
+    sendToViewer(text, name, false, options?.targetLine, workspaceFilePath);
     return;
   }
 
   if (isTextFile(name) && await canPreviewAsText(file)) {
-    // Code/text files: wrap in code block using extension as language tag
+    // Text/code files: pass raw content; reader-side shared module decides
+    // whether to render in code-reading mode.
     const text = await file.text();
-    sendToViewer(`\`\`\`${ext}\n${text.trimEnd()}\n\`\`\``, name, true);
+    sendToViewer(text, name, false, options?.targetLine, workspaceFilePath);
     return;
   }
 
@@ -749,10 +1039,18 @@ async function openWorkspace(dirHandle: FileSystemDirectoryHandle) {
   currentSearchMode = 'filename';
   $previewEmpty.style.display = '';
   $previewFrame.style.display = 'none';
+  resetPreviewFrameState();
   $previewFrame.src = 'about:blank';
 
+  // Reset navigation history
+  navHistory.length = 0;
+  navIndex = -1;
+  navInProgress = false;
+  updateNavButtons();
+
   rootDirHandle = dirHandle;
-  workspaceTree = await readDirectory(dirHandle, '');
+  directoryReadCache.clear();
+  workspaceTree = await getCachedDirectoryEntries(dirHandle, '');
   renderTreeView();
 
   // Save to recent workspaces
@@ -785,6 +1083,18 @@ async function saveRecentWorkspace(handle: FileSystemDirectoryHandle) {
   } catch { /* ignore */ }
 }
 
+async function deleteRecentWorkspace(name: string): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction('recent', 'readwrite');
+  tx.objectStore('recent').delete(name);
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
 async function loadRecentWorkspaces() {
   try {
     const db = await openDB();
@@ -792,13 +1102,24 @@ async function loadRecentWorkspaces() {
     const store = tx.objectStore('recent');
     const req = store.getAll();
     req.onsuccess = () => {
-      const items = (req.result || []).sort((a: any, b: any) => b.time - a.time).slice(0, 5);
-      if (items.length === 0) return;
+      const items = ((req.result || []) as RecentWorkspaceItem[])
+        .sort((a, b) => b.time - a.time)
+        .slice(0, 5);
+
+      $recentList.innerHTML = '';
+
+      if (items.length === 0) {
+        $recentWorkspaces.style.display = 'none';
+        return;
+      }
 
       $recentWorkspaces.style.display = '';
-      $recentList.innerHTML = '';
       for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'recent-item-row';
+
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'recent-item';
         btn.textContent = '📁 ' + item.name;
         btn.addEventListener('click', async () => {
@@ -811,7 +1132,31 @@ async function loadRecentWorkspaces() {
             // User denied or handle expired
           }
         });
-        $recentList.appendChild(btn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'recent-item-remove';
+        removeBtn.textContent = '×';
+        const removeLabel = Localization.translate('remove_from_list');
+        removeBtn.title = removeLabel;
+        removeBtn.setAttribute('aria-label', removeLabel);
+        removeBtn.addEventListener('click', async (event) => {
+          event.stopPropagation();
+
+          try {
+            await deleteRecentWorkspace(item.name);
+            if (sessionStorage.getItem('workspace-active') === item.name) {
+              sessionStorage.removeItem('workspace-active');
+            }
+            await loadRecentWorkspaces();
+          } catch {
+            // Ignore deletion failures to avoid interrupting the workspace UI.
+          }
+        });
+
+        row.appendChild(btn);
+        row.appendChild(removeBtn);
+        $recentList.appendChild(row);
       }
     };
   } catch { /* ignore */ }
@@ -857,6 +1202,15 @@ $fileSearchInput.addEventListener('keydown', (event: KeyboardEvent) => {
 window.addEventListener('message', async (event: MessageEvent) => {
   if (event.source !== $previewFrame.contentWindow) return;
 
+  if (event.data?.type === 'WORKSPACE_HISTORY_NAVIGATE') {
+    const delta = Number(event.data.delta);
+    if (!Number.isFinite(delta) || delta === 0) {
+      return;
+    }
+    void navigateHistory(navIndex + (delta < 0 ? -1 : 1));
+    return;
+  }
+
   if (event.data?.type === 'RESOLVE_IMAGE') {
     const { src, id } = event.data;
     const resolved = resolveRelativePath(currentFileDir, src);
@@ -864,6 +1218,18 @@ window.addEventListener('message', async (event: MessageEvent) => {
     if (file) {
       const url = URL.createObjectURL(file);
       $previewFrame.contentWindow!.postMessage({ type: 'IMAGE_RESOLVED', id, url }, '*');
+    }
+    return;
+  }
+
+  // Relative link clicks from the rendered markdown inside the iframe
+  if (event.data?.type === 'WORKSPACE_NAVIGATE') {
+    const rawPath = String(event.data.path || '');
+    const hashIndex = rawPath.indexOf('#');
+    const pathOnly = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
+    if (pathOnly) {
+      const resolved = resolveRelativePath(currentFileDir, pathOnly);
+      void navigateToWorkspaceFile(resolved);
     }
     return;
   }
@@ -897,6 +1263,28 @@ window.addEventListener('message', async (event: MessageEvent) => {
   }
 });
 
+// ─── Navigate to a workspace file (from markdown link click) ───
+async function navigateToWorkspaceFile(filePath: string): Promise<void> {
+  if (!rootDirHandle) return;
+  const segments = filePath.split('/').filter(Boolean);
+  if (segments.length === 0) return;
+  const fileName = segments[segments.length - 1];
+  const dirPath = segments.length > 1 ? segments.slice(0, -1).join('/') + '/' : '';
+
+  let dir = rootDirHandle;
+  for (let i = 0; i < segments.length - 1; i++) {
+    try { dir = await dir.getDirectoryHandle(segments[i]); }
+    catch { return; }
+  }
+  try {
+    const fh = await dir.getFileHandle(fileName);
+    activeFilePath = filePath;
+    currentFileDir = dirPath;
+    void syncTreeToActiveFile(filePath);
+    openFile(fh);
+  } catch { /* file not found */ }
+}
+
 // ─── Restore last file ───
 async function restoreLastFile(filePath: string): Promise<void> {
   if (!rootDirHandle) return;
@@ -914,7 +1302,7 @@ async function restoreLastFile(filePath: string): Promise<void> {
     const fh = await dir.getFileHandle(fileName);
     currentFileDir = dirPath;
     activeFilePath = filePath;
-    renderTreeView();
+    await syncTreeToActiveFile(filePath);
     await openFile(fh);
   } catch { /* file no longer exists */ }
 }
@@ -952,6 +1340,61 @@ async function restoreLastWorkspace(): Promise<boolean> {
       req.onerror = () => resolve(false);
     });
   } catch { return false; }
+}
+
+async function consumePendingWorkspaceOpen(): Promise<boolean> {
+  try {
+    const storageLocal = webExtensionApi.storage.local as {
+      get: (keys: string | string[] | Record<string, unknown>) => Promise<Record<string, unknown>>;
+      remove?: (keys: string | string[]) => Promise<void>;
+      set?: (items: Record<string, unknown>) => Promise<void>;
+    };
+
+    const result = await storageLocal.get([PENDING_WORKSPACE_OPEN_KEY]);
+    const pending = result[PENDING_WORKSPACE_OPEN_KEY] as PendingWorkspaceOpenRequest | undefined;
+
+    if (!pending?.workspaceName || !pending?.filePath) {
+      return false;
+    }
+
+    if (typeof storageLocal.remove === 'function') {
+      await storageLocal.remove(PENDING_WORKSPACE_OPEN_KEY);
+    } else if (typeof storageLocal.set === 'function') {
+      await storageLocal.set({ [PENDING_WORKSPACE_OPEN_KEY]: null });
+    }
+
+    const db = await openDB();
+    const tx = db.transaction('recent', 'readonly');
+    const store = tx.objectStore('recent');
+    const req = store.get(pending.workspaceName);
+
+    return await new Promise<boolean>((resolve) => {
+      req.onsuccess = async () => {
+        const item = req.result as RecentWorkspaceItem | undefined;
+        if (!item) {
+          resolve(false);
+          return;
+        }
+
+        try {
+          const perm = await item.handle.queryPermission({ mode: 'read' });
+          if (perm !== 'granted') {
+            resolve(false);
+            return;
+          }
+
+          await openWorkspace(item.handle);
+          await restoreLastFile(pending.filePath);
+          resolve(true);
+        } catch {
+          resolve(false);
+        }
+      };
+      req.onerror = () => resolve(false);
+    });
+  } catch {
+    return false;
+  }
 }
 
 // ─── Init ───
@@ -1003,7 +1446,7 @@ Localization.init().then(async () => {
       }
 
       if (typeof nextSettings?.themeId === 'string' && nextSettings.themeId !== oldSettings?.themeId) {
-        void postThemeToViewer(nextSettings.themeId);
+        void postHostUiToViewer({ themeId: nextSettings.themeId });
       }
 
       // Theme may have changed in the popup; re-sync dark class so the outer
@@ -1022,7 +1465,7 @@ Localization.init().then(async () => {
   });
 
   applyI18nText();
-  const restored = await restoreLastWorkspace();
+  const restored = await consumePendingWorkspaceOpen() || await restoreLastWorkspace();
   if (!restored) {
     loadRecentWorkspaces();
   }

@@ -13,6 +13,7 @@ import type MarkdownViewerPlugin from './main';
 import { getFileType } from '../../../src/utils/file-wrapper';
 import { rewriteObsidianSvgEmbeds } from './obsidian-svg-embed-rewrite';
 import { expandObsidianMarkdownEmbeds } from './obsidian-markdown-embed-rewrite';
+import { getEmbeddedAsset } from './embedded-assets';
 
 // Viewer module — runs in same process, no iframe
 import { initializeViewer, obsidianHostTransport } from '../webview/main';
@@ -25,6 +26,7 @@ export const VIEW_TYPE = 'markdown-viewer-preview';
 export class MarkdownPreviewView extends ItemView {
   private plugin: MarkdownViewerPlugin;
   private currentFile: TFile | null = null;
+  private openedDocumentPath: string | null = null;
   private hostChannel: ServiceChannel | null = null;
   private isViewerReady = false;
   private pendingMessages: Array<{ type: string; payload?: unknown }> = [];
@@ -116,6 +118,7 @@ export class MarkdownPreviewView extends ItemView {
     this.hostChannel?.close();
     this.hostChannel = null;
     this.isViewerReady = false;
+    this.openedDocumentPath = null;
     this.pendingMessages = [];
     this.uploadSessions.clear();
   }
@@ -155,12 +158,16 @@ export class MarkdownPreviewView extends ItemView {
       documentBaseUri = placeholderUrl.replace(/\/__p__(\?.*)?$/, '');
     }
 
-    this.postToViewer('UPDATE_CONTENT', {
+    const messageType = this.openedDocumentPath === file.path ? 'UPDATE_CONTENT' : 'OPEN_DOCUMENT';
+
+    this.postToViewer(messageType, {
       content,
       filename: file.name,
       documentPath: file.path,
       documentBaseUri,
     });
+
+    this.openedDocumentPath = file.path;
   }
 
   private async preprocessMarkdownContent(content: string, file: TFile): Promise<string> {
@@ -369,6 +376,15 @@ export class MarkdownPreviewView extends ItemView {
       }
     });
 
+    this.hostChannel.on('EXPORT_HTML_RESULT', (payload) => {
+      const result = payload as { success: boolean; filename?: string; error?: string };
+      if (result.success) {
+        new Notice(`HTML exported: ${result.filename || 'document.html'}`);
+      } else {
+        new Notice(`HTML export failed: ${result.error || 'Unknown error'}`, 5000);
+      }
+    });
+
     // Informational messages — just listen, no response needed
     for (const infoType of [
       'EXPORT_PROGRESS', 'RENDER_PROGRESS',
@@ -453,6 +469,11 @@ export class MarkdownPreviewView extends ItemView {
   // ===========================================================================
 
   private async handleFetchAsset(payload: { path: string }): Promise<string> {
+    const embedded = getEmbeddedAsset(payload.path);
+    if (embedded !== null) {
+      return embedded;
+    }
+
     const pluginDir = this.plugin.manifest.dir;
     if (!pluginDir) throw new Error('Plugin directory unknown');
 
@@ -560,7 +581,9 @@ export class MarkdownPreviewView extends ItemView {
     const session = this.uploadSessions.get(payload.token);
     if (!session || !session.completed) throw new Error('Upload session not found or not finalized');
 
-    const filename = (session.metadata.filename as string) || 'document.docx';
+    const mimeType = (session.metadata.mimeType as string) || 'application/octet-stream';
+    const fallbackFilename = mimeType.includes('html') ? 'document.html' : 'document.docx';
+    const filename = (session.metadata.filename as string) || fallbackFilename;
 
     // Decode base64 → binary
     const binaryStr = atob(session.data);
@@ -580,18 +603,30 @@ export class MarkdownPreviewView extends ItemView {
       const electron = require('electron');
       const remote = electron.remote;
       const path = require('path');
+      const extension = (path.extname(filename) || '').toLowerCase();
+
+      let dialogTitle = 'Export DOCX';
+      let filters: Array<{ name: string; extensions: string[] }> = [
+        { name: 'Word Documents', extensions: ['docx'] },
+        { name: 'All Files', extensions: ['*'] },
+      ];
+
+      if (mimeType.includes('html') || extension === '.html' || extension === '.htm') {
+        dialogTitle = 'Export HTML';
+        filters = [
+          { name: 'HTML Files', extensions: ['html', 'htm'] },
+          { name: 'All Files', extensions: ['*'] },
+        ];
+      }
 
       // Get vault base path for absolute path construction
       const vaultBasePath = (this.app.vault.adapter as { getBasePath?: () => string }).getBasePath?.() ?? '';
       const defaultPath = path.join(vaultBasePath, defaultDir, filename);
 
       const result = await remote.dialog.showSaveDialog({
-        title: 'Export DOCX',
+        title: dialogTitle,
         defaultPath,
-        filters: [
-          { name: 'Word Documents', extensions: ['docx'] },
-          { name: 'All Files', extensions: ['*'] },
-        ],
+        filters,
       });
 
       if (result.canceled || !result.filePath) {

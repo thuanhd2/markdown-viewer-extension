@@ -15,6 +15,14 @@ interface HistoryItem {
   lastAccess?: number;
 }
 
+interface WorkspaceHistoryTarget {
+  workspaceName: string;
+  filePath: string;
+}
+
+const WORKSPACE_HISTORY_PROTOCOL = 'mdv-workspace:';
+const PENDING_WORKSPACE_OPEN_KEY = 'markdownViewerPendingWorkspaceOpen';
+
 /**
  * History tab manager options
  */
@@ -38,6 +46,42 @@ export interface HistoryTabManager {
  * @returns History tab manager instance
  */
 export function createHistoryTabManager({ showMessage, showConfirm }: HistoryTabManagerOptions): HistoryTabManager {
+  function parseWorkspaceHistoryUrl(url: string): WorkspaceHistoryTarget | null {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== WORKSPACE_HISTORY_PROTOCOL) {
+        return null;
+      }
+
+      const workspaceName = parsed.searchParams.get('name') || '';
+      const filePath = parsed.searchParams.get('path') || '';
+      if (!workspaceName || !filePath) {
+        return null;
+      }
+
+      return { workspaceName, filePath };
+    } catch {
+      return null;
+    }
+  }
+
+  function getHistorySubtitle(url: string): string {
+    const workspaceTarget = parseWorkspaceHistoryUrl(url);
+    if (workspaceTarget) {
+      return `${workspaceTarget.workspaceName}/${workspaceTarget.filePath}`;
+    }
+
+    return url;
+  }
+
+  async function removeHistoryItem(url: string): Promise<void> {
+    const result = await storageGet(['markdownHistory']);
+    const history = (result.markdownHistory || []) as HistoryItem[];
+    const nextHistory = history.filter((item) => item.url !== url);
+
+    await storageSet({ markdownHistory: nextHistory });
+  }
+
   /**
    * Extract filename from URL
    * @param url - URL to extract filename from
@@ -100,6 +144,7 @@ export function createHistoryTabManager({ showMessage, showConfirm }: HistoryTab
     itemsEl.dataset.empty = 'false';
 
     const accessedLabel = translate('cache_item_accessed_label');
+    const removeLabel = translate('remove_from_list');
     const locale = getUiLocale();
     const fragment = document.createDocumentFragment();
 
@@ -111,22 +156,53 @@ export function createHistoryTabManager({ showMessage, showConfirm }: HistoryTab
       const urlEl = historyItemEl.querySelector('.history-item-url');
       const titleEl = historyItemEl.querySelector('.history-item-title');
       const accessedEl = historyItemEl.querySelector('.history-item-accessed');
+      const removeBtn = historyItemEl.querySelector('.history-item-remove') as HTMLButtonElement | null;
 
       if (urlEl) {
         urlEl.textContent = item.title;
       }
 
       if (titleEl) {
-        titleEl.textContent = item.url;
+        titleEl.textContent = getHistorySubtitle(item.url);
       }
 
       if (accessedEl && item.lastAccess) {
         accessedEl.textContent = `${accessedLabel}: ${new Date(item.lastAccess).toLocaleString(locale)}`;
       }
 
+      if (removeBtn) {
+        removeBtn.title = removeLabel;
+        removeBtn.setAttribute('aria-label', removeLabel);
+        removeBtn.addEventListener('click', async (event) => {
+          event.stopPropagation();
+
+          try {
+            await removeHistoryItem(item.url);
+            await loadHistoryData();
+          } catch (error) {
+            console.error('Failed to remove history item:', error);
+            showMessage(translate('history_clear_failed'), 'error');
+          }
+        });
+      }
+
       // Add click handler to open the document
       historyItemEl.addEventListener('click', async () => {
         try {
+          const workspaceTarget = parseWorkspaceHistoryUrl(item.url);
+          if (workspaceTarget) {
+            await storageSet({
+              [PENDING_WORKSPACE_OPEN_KEY]: {
+                workspaceName: workspaceTarget.workspaceName,
+                filePath: workspaceTarget.filePath,
+                requestedAt: Date.now(),
+              },
+            });
+            chrome.tabs.create({ url: chrome.runtime.getURL('ui/workspace/workspace.html') });
+            window.close();
+            return;
+          }
+
           const isFileUrl = item.url.startsWith('file://');
           
           // Firefox cannot open file:// URLs from extension context due to security restrictions

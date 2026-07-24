@@ -66,6 +66,17 @@ interface ParentStyle extends Partial<IRunOptions> {
   strike?: boolean;
 }
 
+function resolveInlineCodeSize(parentStyle: ParentStyle, themeStyles: DOCXThemeStyles): number {
+  const defaultSize = themeStyles.default.run.size;
+  const codeSize = themeStyles.characterStyles.code.size;
+
+  if (!parentStyle.size || defaultSize <= 0) {
+    return codeSize;
+  }
+
+  return Math.max(1, Math.round((parentStyle.size * codeSize) / defaultSize));
+}
+
 /**
  * AST Node types
  */
@@ -373,7 +384,7 @@ export function createInlineConverter({
           ...parentStyle,
           text: node.value,
           font: codeStyle.font,
-          size: codeStyle.size,
+          size: resolveInlineCodeSize(parentStyle, themeStyles),
           shading: { fill: codeStyle.background },
         });
       }

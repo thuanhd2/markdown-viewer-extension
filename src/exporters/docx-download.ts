@@ -60,7 +60,11 @@ export async function downloadBlob(
   const platform = globalThis.platform as PlatformAPI | undefined;
   
   // Local files in browser extensions: use <a download> directly (no downloads permission needed)
-  if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
+  if (
+    typeof window !== 'undefined'
+    && window.location?.protocol === 'file:'
+    && platform?.platform !== 'mobile'
+  ) {
     fallbackDownload(blob, filename);
     return;
   }

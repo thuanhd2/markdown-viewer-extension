@@ -5,20 +5,11 @@
 import { getWebExtensionApi } from '../../../src/utils/platform-info';
 
 import {
-  DOT_EXTENSION_TO_FILE_TYPE,
   ALL_SUPPORTED_EXTENSIONS,
-  getDefaultSupportedExtensions,
-  type SupportedExtensions,
 } from '../../../src/types/formats';
+import { getCodePreviewMatchedExtension } from '../../../src/utils/code-preview';
 
 const webExtensionApi = getWebExtensionApi();
-
-/**
- * Map file extension to fileType
- */
-function getExtensionFileType(ext: string): string | null {
-  return DOT_EXTENSION_TO_FILE_TYPE[ext] || null;
-}
 
 /**
  * Check if file extension requires settings check (non-markdown extensions)
@@ -34,13 +25,20 @@ function getMatchedExtension(path: string): string | null {
   if (lowerPath.endsWith('.html')) {
     return '.html';
   }
+  if (lowerPath.endsWith('.htm')) {
+    return '.html';
+  }
+
+  const codePreviewExt = getCodePreviewMatchedExtension(lowerPath);
+  if (codePreviewExt) return codePreviewExt;
+
   return null;
 }
 
 /**
  * Check if this is a processable file based on content type and structure
  */
-function isProcessableContent(): boolean {
+function isProcessableContent(): boolean | null {
   // Check content type from document if available
   interface DocumentWithContentType {
     contentType?: string;
@@ -57,6 +55,12 @@ function isProcessableContent(): boolean {
     if (contentType.includes('text/plain') || contentType.includes('application/octet-stream')) {
       return true;
     }
+  }
+
+  // At document_start (notably in Firefox), metadata/body can be unavailable.
+  // Defer detection instead of assuming processable to avoid false positives.
+  if (!document.body) {
+    return null;
   }
 
   // For local files or when content type is not available, check if body contains raw content
@@ -111,6 +115,15 @@ function hidePageContent(): void {
  * Inject the main content script
  */
 function injectContentScript(): void {
+  // If user explicitly marked this session to view as raw, abort.
+  try {
+    if (sessionStorage.getItem('markdownViewerRawOverride') === '1') {
+      return;
+    }
+  } catch (e) {
+    // sessionStorage access denied
+  }
+
   // Hide content immediately before injection to prevent flashing
   hidePageContent();
 
@@ -202,6 +215,12 @@ async function detectAndInject(): Promise<void> {
 
   // Check if content is processable
   const processable = isProcessableContent();
+  if (processable === null) {
+    document.addEventListener('DOMContentLoaded', () => {
+      void detectAndInject();
+    }, { once: true });
+    return;
+  }
   if (!processable) {
     return;
   }
@@ -212,26 +231,14 @@ async function detectAndInject(): Promise<void> {
     return;
   }
 
-  // For other extensions, check settings
-  const fileType = getExtensionFileType(matchedExt);
-  if (!fileType) {
+  // Common text/code files should preview directly in reader mode.
+  if (getCodePreviewMatchedExtension(matchedExt)) {
+    injectContentScript();
     return;
   }
 
-  try {
-    const result = await webExtensionApi.storage.local.get(['markdownViewerSettings']);
-    const settings = result.markdownViewerSettings as { supportedExtensions?: SupportedExtensions } | undefined;
-    
-    // Default settings if not configured
-    const extensions: SupportedExtensions = settings?.supportedExtensions || getDefaultSupportedExtensions();
-    
-    if (extensions[fileType]) {
-      injectContentScript();
-    }
-  } catch (error) {
-    // On error, use default behavior (inject)
-    injectContentScript();
-  }
+  // All other recognized non-HTML formats are now always previewed.
+  injectContentScript();
 }
 
 // Run detection

@@ -38,20 +38,54 @@ export function findI18nKeysInCode() {
   const keysUsedInHTML = new Set();
   const keysUsedInDart = new Set();
 
+  function addResolvedVariableKey(variableKeyMap, variableName) {
+    const values = variableKeyMap.get(variableName);
+    if (!values) return;
+    for (const value of values) {
+      keysUsedInCode.add(value);
+    }
+  }
+
   function scanJSFile(filePath) {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
+      const variableKeyMap = new Map();
 
-      // Match translate('key'), translate?.('key'), t('key')
-      const translatePattern = /translate\??\s*\.?\s*\(\s*['"]([^'"]+)['"]/g;
+      const directAssignmentPattern = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*['"]([^'"]+)['"]/g;
       let match;
+      while ((match = directAssignmentPattern.exec(content)) !== null) {
+        variableKeyMap.set(match[1], [match[2]]);
+      }
+
+      const ternaryAssignmentPattern = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[^;\n]*\?\s*['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g;
+      while ((match = ternaryAssignmentPattern.exec(content)) !== null) {
+        variableKeyMap.set(match[1], [match[2], match[3]]);
+      }
+
+      // Match t('key'), tf('key', ...), translate('key')
+      const translatePattern = /\b(?:t|tf|translate)\s*\(\s*['"]([^'"]+)['"]/g;
       while ((match = translatePattern.exec(content)) !== null) {
         keysUsedInCode.add(match[1]);
       }
 
-      const i18nPattern = /chrome\.i18n\.getMessage\s*\(\s*['"]([^'"]+)['"]/g;
+      const i18nPattern = /(?:chrome|browser)\.i18n\??\.getMessage\s*\(\s*['"]([^'"]+)['"]/g;
       while ((match = i18nPattern.exec(content)) !== null) {
         keysUsedInCode.add(match[1]);
+      }
+
+      const variableI18nPattern = /(?:chrome|browser)\.i18n\??\.getMessage\s*\(\s*([A-Za-z_$][\w$]*)\s*\)/g;
+      while ((match = variableI18nPattern.exec(content)) !== null) {
+        addResolvedVariableKey(variableKeyMap, match[1]);
+      }
+
+      const bracketAccessPattern = /\bmessages\s*\[\s*['"]([^'"]+)['"]\s*\]/g;
+      while ((match = bracketAccessPattern.exec(content)) !== null) {
+        keysUsedInCode.add(match[1]);
+      }
+
+      const variableBracketAccessPattern = /\bmessages\s*\[\s*([A-Za-z_$][\w$]*)\s*\]/g;
+      while ((match = variableBracketAccessPattern.exec(content)) !== null) {
+        addResolvedVariableKey(variableKeyMap, match[1]);
       }
     } catch {
       // Ignore unreadable files
@@ -92,7 +126,7 @@ export function findI18nKeysInCode() {
     try {
       const content = fs.readFileSync(filePath, 'utf8');
 
-      const msgPattern = /__MSG_([^_]+)__/g;
+      const msgPattern = /__MSG_([A-Za-z0-9_@.-]+?)__/g;
       let match;
       while ((match = msgPattern.exec(content)) !== null) {
         keysUsedInCode.add(match[1]);

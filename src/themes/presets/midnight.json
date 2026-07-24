@@ -4,7 +4,7 @@
   "name_en": "Midnight",
   "description": "深蓝夜读底色，强层级的编辑型排版",
   "description_en": "Deep blue night-reading base with editorial hierarchy",
-  "author": "Markdown Viewer Extension",
+  "author": "docu.md Markdown Viewer",
   "version": "1.0.0",
   "fontScheme": {
     "body": { "fontFamily": "Helvetica Neue" },

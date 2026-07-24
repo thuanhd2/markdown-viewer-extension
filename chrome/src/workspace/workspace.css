@@ -101,6 +101,11 @@ html, body {
 .recent-workspaces { margin-top: 40px; text-align: left; }
 .recent-title { font-size: 13px; color: var(--color-text-tertiary); margin-bottom: 8px; }
 .recent-list { display: flex; flex-direction: column; gap: 4px; }
+.recent-item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .recent-item {
   display: flex;
   align-items: center;
@@ -116,6 +121,40 @@ html, body {
   width: 100%;
 }
 .recent-item:hover { background: var(--color-bg-hover); }
+.recent-item-remove {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.recent-item-row:hover .recent-item-remove,
+.recent-item-row:focus-within .recent-item-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.recent-item-remove:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.recent-item-remove:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
 
 /* === Workspace === */
 .workspace {
@@ -312,6 +351,13 @@ html, body {
   color: var(--color-text-tertiary);
 }
 
+.search-highlight {
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 .tree-children { display: none; }
 .tree-children.open { display: block; }
 
@@ -319,8 +365,7 @@ html, body {
 .preview-pane {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   overflow: hidden;
   background: var(--color-bg-surface);
   position: relative;
@@ -329,11 +374,15 @@ html, body {
 .preview-empty {
   color: var(--color-text-tertiary);
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
 }
 
 .preview-frame {
   width: 100%;
-  height: 100%;
+  flex: 1;
   border: none;
   /* Paint the iframe element itself with the surface color so the brief
      blank frame between navigations (file switch / refresh) doesn't flash

@@ -151,9 +151,25 @@
     "message": "Zamknij",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Skopiowano",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Kopiuj kod",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Kopiowanie nie powiodło się",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Wyświetl jako Markdown",
     "description": "Context menu item to view any file as markdown"
+  },
+  "contextMenu_viewAsRaw": {
+    "message": "View as Raw",
+    "description": "Context menu item to restore the page to its original state"
   },
   "copy_as_png": {
     "message": "Copy as PNG",
@@ -187,13 +203,17 @@
     "message": "Eksportuj do DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_html": {
+    "message": "Eksportuj do HTML",
+    "description": "Export menu item for exporting to HTML"
+  },
   "export_menu_print_pdf": {
     "message": "Drukuj do PDF",
     "description": "Export menu item for printing to PDF"
   },
-  "export_menu_save_markdown": {
-    "message": "Zapisz jako Markdown",
-    "description": "Export menu item for saving current file as Markdown"
+  "export_menu_save_file": {
+    "message": "Zapisz plik",
+    "description": "Export menu item for saving current file"
   },
   "exporting": {
     "message": "Przygotowywanie dokumentu Word...",
@@ -204,7 +224,7 @@
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
-    "message": "Markdown Viewer",
+    "message": "docu.md Markdown Viewer",
     "description": "Extension name"
   },
   "failed_to_open_file": {
@@ -251,14 +271,6 @@
     "message": "URL skopiowany. Wklej w pasku adresu, aby otworzyć.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
-  "heading_h2_format": {
-    "message": "Rozdział {0}",
-    "description": "Format for h2 headings. {0} is the chapter number."
-  },
-  "heading_h2_numerals": {
-    "message": "arabic",
-    "description": "Numeral system for h2: chinese, arabic, roman"
-  },
   "history_clear": {
     "message": "Wyczyść historię",
     "description": "Clear history button"
@@ -303,6 +315,22 @@
     "message": "Język",
     "description": "Menu item for language"
   },
+  "lightbox_close": {
+    "message": "Zamknij",
+    "description": "Tooltip for closing the diagram lightbox"
+  },
+  "lightbox_fit": {
+    "message": "Dopasuj do ekranu",
+    "description": "Tooltip for fitting the diagram to the lightbox viewport"
+  },
+  "lightbox_zoom_in": {
+    "message": "Powiększ",
+    "description": "Tooltip for zooming in in the diagram lightbox"
+  },
+  "lightbox_zoom_out": {
+    "message": "Pomniejsz",
+    "description": "Tooltip for zooming out in the diagram lightbox"
+  },
   "more": {
     "message": "More",
     "description": "More menu tooltip"
@@ -346,6 +374,122 @@
   "recent_files": {
     "message": "Ostatnie pliki",
     "description": "Title for recent files section"
+  },
+  "remark_add_note": {
+    "message": "Dodaj uwagę…",
+    "description": "Placeholder and tooltip for adding a remark note"
+  },
+  "remark_cfg_title": {
+    "message": "Tryb adnotacji",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Automatycznie usuwaj puste notatki",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Zamknij kartę po skopiowaniu",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Domyślny kolor",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_font_size": {
+    "message": "Rozmiar czcionki",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Styl wyróżnienia",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Tło",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Ramka",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Podkreślenie",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Falisty",
+    "description": "Highlight style: wavy underline"
+  },
+  "remark_clear_all": {
+    "message": "Wyczyść wszystkie uwagi",
+    "description": "Tooltip for clearing all remarks"
+  },
+  "remark_color_blue": {
+    "message": "Pytanie",
+    "description": "Label for the blue remark category"
+  },
+  "remark_color_green": {
+    "message": "Zachowaj",
+    "description": "Label for the green remark category"
+  },
+  "remark_color_pink": {
+    "message": "Obawa",
+    "description": "Label for the pink remark category"
+  },
+  "remark_color_yellow": {
+    "message": "Sugestia",
+    "description": "Label for the yellow remark category"
+  },
+  "remark_copied": {
+    "message": "Skopiowano!",
+    "description": "Temporary success state after copying remarks"
+  },
+  "remark_copy_btn": {
+    "message": "Skopiuj uwagi",
+    "description": "Button text for copying all remarks"
+  },
+  "remark_copy_failed": {
+    "message": "Kopiowanie nie powiodło się",
+    "description": "Temporary error state when copying remarks fails"
+  },
+  "remark_copy_tooltip": {
+    "message": "Skopiuj wszystkie uwagi do schowka",
+    "description": "Tooltip for copying all remarks"
+  },
+  "remark_delete": {
+    "message": "Usuń",
+    "description": "Tooltip for deleting a remark"
+  },
+  "remark_deleted": {
+    "message": "Usunięto",
+    "description": "Status label shown after a remark is deleted"
+  },
+  "remark_empty_hint": {
+    "message": "Zaznacz tekst, aby dodać uwagi",
+    "description": "Empty state hint in the remarks sidebar"
+  },
+  "remark_exit_mode": {
+    "message": "Wyjdź z trybu uwag",
+    "description": "Toolbar button title for leaving remark mode"
+  },
+  "remark_export_intro": {
+    "message": "Przejrzałem **{0}** i mam następujące uwagi:",
+    "description": "Intro line for exported remarks. {0} is the file path or title."
+  },
+  "remark_export_note": {
+    "message": "Uwaga",
+    "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_mode": {
+    "message": "Tryb uwag",
+    "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_sidebar_title": {
+    "message": "Uwagi",
+    "description": "Sidebar title for the remarks panel"
+  },
+  "remark_undo": {
+    "message": "Cofnij",
+    "description": "Button text for undoing remark deletion"
   },
   "remove_from_list": {
     "message": "Remove from list",
@@ -519,46 +663,6 @@
     "message": "Ustawienia zapisane",
     "description": "Toast when settings saved"
   },
-  "settings_support_canvas": {
-    "message": "Diagramy JSON Canvas (.canvas)",
-    "description": "Checkbox label for enabling JSON Canvas file support"
-  },
-  "settings_support_dot": {
-    "message": "Diagramy Graphviz DOT (.gv)",
-    "description": "Checkbox label for Graphviz DOT format support"
-  },
-  "settings_support_drawio": {
-    "message": "Diagramy drawio (.drawio)",
-    "description": "Checkbox label for enabling drawio file support"
-  },
-  "settings_support_infographic": {
-    "message": "Infografiki (.infographic)",
-    "description": "Checkbox label for Infographic format support"
-  },
-  "settings_support_mermaid": {
-    "message": "Diagramy Mermaid (.mermaid)",
-    "description": "Checkbox label for Mermaid format support"
-  },
-  "settings_support_plantuml": {
-    "message": "Diagramy PlantUML (.plantuml, .puml)",
-    "description": "Checkbox label for enabling PlantUML file support"
-  },
-  "settings_support_slidev": {
-    "message": "Slidev slides (.slides.md)",
-    "description": "Checkbox label for enabling Slidev file support"
-  },
-  "settings_support_vega": {
-    "message": "Wykresy Vega (.vega)",
-    "description": "Checkbox label for Vega format support"
-  },
-  "settings_support_vega_lite": {
-    "message": "Wykresy Vega-Lite (.vl, .vega-lite)",
-    "description": "Checkbox label for Vega-Lite format support"
-  },
-  "settings_supported_formats_title": {
-    "message": "Obsługiwane formaty",
-    "description": "Title for supported file formats section in settings"
-  },
   "settings_swap_panel_side": {
     "message": "Swap TOC / file tree side",
     "description": "Checkbox label for swapping TOC and workspace file tree panel side"
@@ -574,6 +678,10 @@
   "settings_table_layout_center": {
     "message": "Wyśrodkowany",
     "description": "Table layout option: center aligned"
+  },
+  "settings_table_layout_full_width": {
+    "message": "Pelna szerokosc",
+    "description": "Option for centered tables stretched to the full content width"
   },
   "settings_table_layout_left": {
     "message": "Lewy",
@@ -636,8 +744,8 @@
     "description": "Toolbar layout toggle tooltip for normal mode"
   },
   "toolbar_print_disabled_title": {
-    "message": "Drukowanie dostępne tylko dla plików lokalnych",
-    "description": "Tooltip when print button is disabled for remote files"
+    "message": "Drukowanie jest zablokowane przez politykę bezpieczeństwa strony (piaskownica)",
+    "description": "Tooltip when print button is disabled due to sandbox restriction"
   },
   "toolbar_print_title": {
     "message": "Drukuj",

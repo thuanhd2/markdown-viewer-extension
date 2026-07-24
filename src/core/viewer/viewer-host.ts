@@ -17,6 +17,7 @@
 import { createScrollSyncController, type ScrollSyncController } from '../line-based-scroll';
 import { getDocument, renderMarkdownDocument } from './viewer-controller';
 import { AsyncTaskManager } from '../markdown-processor';
+import { renderCodeViewBlock } from '../../utils/code-preview';
 import type { PluginRenderer, PlatformAPI } from '../../types/index';
 import type { FrontmatterDisplay } from './viewer-controller';
 import type { MountedViewer } from '../../integration/types';
@@ -136,6 +137,10 @@ export interface MountedViewerRenderOptions {
   forceRender?: boolean;
   targetLine?: number;
   zoomLevel?: number;
+  directCodeView?: {
+    content: string;
+    language: string;
+  };
 }
 
 export interface MountedViewerOptions {
@@ -146,6 +151,7 @@ export interface MountedViewerOptions {
   translate: TranslateFn;
   topOffset?: number;
   initialZoomLevel?: number;
+  onHeadingPresenceKnown?: (hasHeadings: boolean) => void;
   onHeadings?: (headings: Array<{ level: number; text: string; id: string }>) => void;
   onProgress?: (completed: number, total: number) => void;
   beforeProcessAll?: () => void;
@@ -179,6 +185,7 @@ export function createMountedViewer(options: MountedViewerOptions): MountedViewe
     translate,
     topOffset,
     initialZoomLevel = 1,
+    onHeadingPresenceKnown,
     onHeadings,
     onProgress,
     beforeProcessAll,
@@ -213,6 +220,20 @@ export function createMountedViewer(options: MountedViewerOptions): MountedViewe
       zoomLevel = renderOptions.zoomLevel;
     }
 
+    if (renderOptions?.directCodeView) {
+      if (currentTaskManagerRef.current) {
+        currentTaskManagerRef.current.abort();
+        currentTaskManagerRef.current = null;
+      }
+
+      renderCodeViewBlock(
+        container,
+        renderOptions.directCodeView.content,
+        renderOptions.directCodeView.language,
+      );
+      return;
+    }
+
     await renderMarkdownFlow({
       markdown,
       container,
@@ -225,6 +246,7 @@ export function createMountedViewer(options: MountedViewerOptions): MountedViewe
       platform,
       currentTaskManagerRef,
       targetLine: renderOptions?.targetLine,
+      onHeadingPresenceKnown,
       onHeadings,
       onProgress,
       beforeProcessAll,
@@ -378,12 +400,12 @@ export async function getTableMergeEmpty(platform: PlatformAPI): Promise<boolean
  * Get the table layout setting.
  * Uses platform.settings service exclusively.
  *
- * @returns 'left' | 'center' (default: 'center')
+ * @returns 'left' | 'center' | 'center-full-width' (default: 'center')
  */
-export async function getTableLayout(platform: PlatformAPI): Promise<'left' | 'center'> {
+export async function getTableLayout(platform: PlatformAPI): Promise<'left' | 'center' | 'center-full-width'> {
   try {
     const layout = await platform.settings.get('tableLayout');
-    return layout === 'left' ? 'left' : 'center';
+    return layout === 'left' || layout === 'center-full-width' ? layout : 'center';
   } catch {
     return 'center';
   }
@@ -538,6 +560,11 @@ export interface RenderMarkdownFlowOptions {
   targetLine?: number;
   
   /**
+    * Callback once before rendering starts, based on block splitting, to predict TOC presence.
+    */
+    onHeadingPresenceKnown?: (hasHeadings: boolean) => void;
+
+    /**
    * Callback when headings are extracted during render.
    * - Chrome: Update TOC progressively
    * - VSCode/Mobile: Send to host
@@ -562,6 +589,12 @@ export interface RenderMarkdownFlowOptions {
    * - Chrome: Hide processing indicator
    */
   afterProcessAll?: () => void;
+
+  /**
+   * Delay async task processing until the first visual paint has happened.
+   * Intended for heavy initial renders where first-screen responsiveness matters more.
+   */
+  deferAsyncRenderUntilFirstPaint?: boolean;
   
   /**
    * Called after render completes successfully.
@@ -633,23 +666,27 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     platform,
     currentTaskManagerRef,
     targetLine,
+    onHeadingPresenceKnown,
     onHeadings,
     onProgress,
     beforeProcessAll,
     afterProcessAll,
+    deferAsyncRenderUntilFirstPaint,
     afterRender,
   } = options;
 
   const hasRenderableContent = markdown.trim().length > 0;
 
-  const setContainerVisible = (visible: boolean): void => {
-    container.style.visibility = visible ? '' : 'hidden';
-    // Also reveal the outer #markdown-content wrapper (e.g. Chrome, where the render
-    // container is a child element inside #markdown-content).
-    const outerContent = container.closest('#markdown-content') as HTMLElement | null;
-    if (outerContent && outerContent !== container) {
-      outerContent.style.visibility = visible ? '' : 'hidden';
-    }
+  const waitForNextPaint = async (): Promise<void> => {
+    await new Promise<void>((resolve) => {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+        return;
+      }
+      setTimeout(() => resolve(), 16);
+    });
   };
 
   // Abort any previous rendering task
@@ -663,8 +700,6 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     const taskManager = new AsyncTaskManager(translate);
     currentTaskManagerRef.current = taskManager;
 
-    // First render from an empty container should stay hidden until base
-    // markdown content has been inserted, otherwise users see an empty shell block.
     const hadContentBeforeRender = container.childNodes.length > 0;
 
     // Determine if we need to clear container
@@ -681,16 +716,6 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       if (isRealFileSwitch && fileChanged) {
         scrollController?.reset();
       }
-    }
-
-    if (!hasRenderableContent) {
-      setContainerVisible(false);
-    } else if (hadContentBeforeRender) {
-      // Updating existing content: reveal immediately to avoid flicker.
-      setContainerVisible(true);
-    } else {
-      // Initial content paint: keep hidden until first chunk is rendered.
-      setContainerVisible(false);
     }
 
     // Set target line for scroll sync
@@ -717,18 +742,26 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
     // Get table layout setting
     const tableLayout = await getTableLayout(platform);
 
-    // Apply table layout class to container
-    container.classList.remove('table-layout-left', 'table-layout-center');
+    // Apply table layout class to both the render container and the outer
+    // #markdown-content wrapper. Some hosts render into a child element inside
+    // #markdown-content, while theme CSS targets the wrapper itself.
+    const outerContent = container.closest('#markdown-content') as HTMLElement | null;
+    container.classList.remove('table-layout-left', 'table-layout-center', 'table-layout-center-full-width');
     container.classList.add(`table-layout-${tableLayout}`);
+    if (outerContent && outerContent !== container) {
+      outerContent.classList.remove('table-layout-left', 'table-layout-center', 'table-layout-center-full-width');
+      outerContent.classList.add(`table-layout-${tableLayout}`);
+    }
 
     // Render markdown
-    const renderResult = await renderMarkdownDocument({
+    const { taskManager: renderedTaskManager } = await renderMarkdownDocument({
       markdown,
       container,
       renderer,
       translate,
       taskManager,
       clearContainer: false, // Already cleared above if needed
+      onHeadingPresenceKnown,
       frontmatterDisplay,
       tableMergeEmpty,
       tableLayout,
@@ -750,14 +783,6 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       },
     });
 
-    if (hasRenderableContent && !hadContentBeforeRender) {
-      setContainerVisible(true);
-    }
-
-    if (taskManager.isAborted()) {
-      return;
-    }
-
     // Platform-specific: called after streaming, before async tasks
     // Chrome uses this to update TOC active state
     if (afterRender) {
@@ -766,6 +791,13 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       } else {
         queueMicrotask(afterRender);
       }
+    }
+
+    const shouldDeferAsyncQueue = Boolean(
+      deferAsyncRenderUntilFirstPaint && hasRenderableContent && !hadContentBeforeRender
+    );
+    if (shouldDeferAsyncQueue) {
+      await waitForNextPaint();
     }
 
     // Process async tasks (diagrams, charts).
@@ -789,7 +821,7 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
 
     beforeProcessAll?.();
     try {
-      await renderResult.taskManager.processAll((completed, total) => {
+      await renderedTaskManager.processAll((completed, total) => {
         if (!taskManager.isAborted()) {
           onProgress?.(completed, total);
           tryScrollToTarget();
@@ -821,10 +853,7 @@ export async function renderMarkdownFlow(options: RenderMarkdownFlowOptions): Pr
       currentTaskManagerRef.current = null;
     }
 
-    setContainerVisible(hasRenderableContent);
-
   } catch (error) {
-    setContainerVisible(hasRenderableContent);
     // eslint-disable-next-line no-console
     console.error('[ViewerHost] Render failed:', error);
   }
@@ -1027,6 +1056,113 @@ export async function exportDocxFlow(options: DocxExportFlowOptions): Promise<vo
     if (errMsg === 'Download cancelled by user') return;
     // eslint-disable-next-line no-console
     console.error('[ViewerHost] DOCX export failed:', errMsg);
+    onError?.(errMsg);
+  }
+}
+
+// ============================================================================
+// HTML Export Flow
+// ============================================================================
+
+/**
+ * Options for the unified HTML export flow.
+ */
+export interface HtmlExportFlowOptions {
+  /** Rendered container to serialize (typically #markdown-page). */
+  container: HTMLElement;
+
+  /** Original filename (will be converted to .html). */
+  filename: string;
+
+  /** Optional document title for exported HTML. */
+  title?: string;
+
+  /** Optional platform override (defaults to global platform). */
+  platform?: PlatformAPI;
+
+  /** Progress callback during export. */
+  onProgress?: (completed: number, total: number, phase?: 'processing' | 'saving') => void;
+
+  /** Success callback with generated filename. */
+  onSuccess?: (filename: string) => void;
+
+  /** Error callback with error message. */
+  onError?: (error: string) => void;
+}
+
+/**
+ * Unified HTML single-file export flow.
+ */
+export async function exportHtmlFlow(options: HtmlExportFlowOptions): Promise<void> {
+  const {
+    container,
+    filename,
+    title,
+    platform,
+    onProgress,
+    onSuccess,
+    onError,
+  } = options;
+
+  try {
+    onProgress?.(0, 100, 'processing');
+
+    const effectivePlatform = platform || (globalThis.platform as PlatformAPI | undefined);
+    if (!effectivePlatform?.file) {
+      throw new Error('File service is not available');
+    }
+
+    const HtmlExporterModule = await import('../../exporters/html-exporter');
+    const result = await HtmlExporterModule.exportToHtml({
+      container,
+      filename,
+      title,
+      documentService: effectivePlatform.document,
+      includeKatexCdn: true,
+      onProgress: (completed: number, total: number) => {
+        const percent = total > 0 ? Math.max(0, Math.min(80, Math.round((completed / total) * 80))) : 0;
+        onProgress?.(percent, 100, 'processing');
+      },
+    });
+
+    if (!result.success || !result.html || !result.filename) {
+      throw new Error(result.error || 'Export failed');
+    }
+
+    const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
+    onProgress?.(90, 100, 'saving');
+
+    // Local-file pages can lose ephemeral upload sessions in extension background,
+    // so prefer direct anchor download (same strategy as DOCX fallback path).
+    if (
+      typeof window !== 'undefined'
+      && window.location?.protocol === 'file:'
+      && effectivePlatform.platform !== 'mobile'
+    ) {
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = result.filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objectUrl);
+      }, 100);
+      onProgress?.(100, 100, 'saving');
+      onSuccess?.(result.filename);
+      return;
+    }
+
+    await effectivePlatform.file.download(blob, result.filename, { mimeType: 'text/html' });
+    onProgress?.(100, 100, 'saving');
+    onSuccess?.(result.filename);
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    if (errMsg === 'Download cancelled by user') return;
+    // eslint-disable-next-line no-console
+    console.error('[ViewerHost] HTML export failed:', errMsg);
     onError?.(errMsg);
   }
 }

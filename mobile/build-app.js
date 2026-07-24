@@ -9,7 +9,7 @@
  * Targets:
  *   ios       - Build iOS IPA for distribution
  *   ios:sim   - Build iOS app for simulator
- *   android   - Build Android APK
+ *   android   - Build Android release APK (and AAB when release signing is configured)
  *   macos     - Build macOS app
  *   all       - Build all targets
  */
@@ -148,49 +148,52 @@ const targets = {
   },
   
   android: {
-    name: 'Android APK & AAB',
+    name: 'Android APK (AAB with release signing)',
     build: () => {
-      // Check if keystore exists for release signing
+      // Check whether release signing files are present (for status display only)
       const keystorePath = path.join(mobileDir, 'android/markdown_viewer.keystore');
       const keyPropertiesPath = path.join(mobileDir, 'android/key.properties');
       const hasKeystore = fs.existsSync(keystorePath) && fs.existsSync(keyPropertiesPath);
-      
+
       if (!hasKeystore) {
-        console.log('⚠️  No keystore found - building debug version');
-        console.log('   To build release version:');
+        console.log('⚠️  No keystore found - still building release artifacts (unsigned)');
+        console.log('   To sign release builds:');
         console.log('   1. Generate keystore: keytool -genkey -v -keystore android/markdown_viewer.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias markdown_viewer');
         console.log('   2. Configure android/key.properties with your keystore password\n');
       }
-      
-      const buildMode = hasKeystore ? 'release' : 'debug';
-      const buildModeDisplay = hasKeystore ? 'Release (signed)' : 'Debug (unsigned)';
-      
+
+      const buildModeDisplay = hasKeystore ? 'Release (signed)' : 'Release (unsigned)';
+
       console.log(`\n🤖 Building Android APK (${buildModeDisplay})...\n`);
-      
-      // Build APK
-      exec(`flutter build apk --${buildMode}`, { cwd: mobileDir });
+
+      // Always build release APK
+      exec('flutter build apk --release', { cwd: mobileDir });
       
       const androidDistDir = path.join(distDir, 'android');
       const apkSrcDir = path.join(mobileDir, `build/app/outputs/flutter-apk`);
       
-      copyFiles(apkSrcDir, androidDistDir, /\.apk$/);
-      
+      // Only collect release APK artifacts to avoid copying stale debug outputs.
+      copyFiles(apkSrcDir, androidDistDir, /release.*\.apk$/);
+
       if (hasKeystore) {
-        console.log(`\n🤖 Building Android App Bundle (AAB) for Play Store...\n`);
-        
-        // Build AAB for Play Store (only in release mode)
+        console.log(`\n🤖 Building Android App Bundle (AAB) (${buildModeDisplay})...\n`);
+
         exec('flutter build appbundle --release', { cwd: mobileDir });
-        
+
         const aabSrcDir = path.join(mobileDir, 'build/app/outputs/bundle/release');
         copyFiles(aabSrcDir, androidDistDir, /\.aab$/);
-        
-        console.log(`\n✅ Android builds complete: ${androidDistDir}/`);
-        console.log(`   • APK: signed and ready for direct distribution`);
-        console.log(`   • AAB: signed and ready for Google Play Store`);
       } else {
-        console.log(`\n✅ Android APK built: ${androidDistDir}/`);
-        console.log(`   • APK: debug version for testing only`);
-        console.log(`   ⚠️  Not suitable for Play Store distribution`);
+        console.log(`\n⏭️  Skipping Android App Bundle (AAB): no release keystore configured`);
+      }
+
+      console.log(`\n✅ Android builds complete: ${androidDistDir}/`);
+      if (hasKeystore) {
+        console.log(`   • APK: signed release build`);
+        console.log(`   • AAB: signed release build`);
+      } else {
+        console.log(`   • APK: unsigned release build`);
+        console.log(`   • AAB: not built`);
+        console.log(`   ⚠️  Configure release signing to produce Play Store AAB`);
       }
     }
   },
@@ -230,7 +233,7 @@ Usage:
 Targets:
   ios       Build iOS IPA for distribution
   ios:sim   Build iOS app for simulator  
-  android   Build Android APK & AAB (APK for direct install, AAB for Play Store)
+  android   Build Android release APK (build AAB only when release signing is configured)
   macos     Build macOS app
   all       Build all targets
 

@@ -16,6 +16,14 @@ import { initSlides } from './shims/slides'
 // Expose Vue as global for theme IIFE bundles
 ;(window as any).Vue = Vue
 
+// The @slidev/client goto dialog can be unintentionally visible in shell
+// embedding mode. It is not needed for this extension UX, so disable it.
+const gotoDialogFallbackStyle = document.createElement('style')
+gotoDialogFallbackStyle.textContent = [
+  '#slidev-goto-dialog { display: none !important; visibility: hidden !important; pointer-events: none !important; }',
+].join('\n')
+document.head.appendChild(gotoDialogFallbackStyle)
+
 /** Wait for SLIDEV_INIT message from host, or use pre-injected data */
 function waitForData(): Promise<{ mode?: string; themeCode?: string; themeUrl?: string }> {
   // If data already injected (standalone / direct usage), proceed

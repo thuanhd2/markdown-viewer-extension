@@ -503,6 +503,8 @@ h1.clickable-title:hover {
   transition: all var(--transition-fast);
   padding: 12px;
   border-left: 3px solid transparent;
+  position: relative;
+  padding-right: 42px;
 }
 
 .history-item:hover {
@@ -522,6 +524,10 @@ h1.clickable-title:hover {
   margin-bottom: 4px;
 }
 
+.history-item-main {
+  min-width: 0;
+}
+
 .history-item-title {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
@@ -529,6 +535,43 @@ h1.clickable-title:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
+}
+
+.history-item-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+.history-item:hover .history-item-remove,
+.history-item:focus-within .history-item-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.history-item-remove:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.history-item-remove:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 
 /* Settings Form */

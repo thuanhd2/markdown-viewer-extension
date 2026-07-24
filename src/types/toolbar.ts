@@ -33,12 +33,29 @@ export interface ToolbarManagerOptions {
   getFileState: () => Promise<FileState>;
   isMobile: boolean;
   rawMarkdown: string;
+  /** Get latest original/raw file content for save-file action */
+  getRawContent?: () => string;
   docxExporter: DocxExporter;
   cancelScrollRestore: () => void;
   updateActiveTocItem: () => void;
-  toolbarPrintDisabledTitle: string;
   /** Called before zoom changes to lock scroll position */
   onBeforeZoom?: () => void;
+  /** Set TOC visibility from the host/session state owner */
+  onSetTocVisibility?: (visible: boolean) => void;
+  /** Whether to show source/preview toggle button */
+  enableSourceToggle?: boolean;
+  /** Toggle between markdown preview and source mode */
+  onToggleSourceMode?: () => void;
+  /** Get current source mode state */
+  getSourceMode?: () => boolean;
+  /** Whether current view should save raw file on Ctrl/Cmd+S */
+  isSourceModeActive?: () => boolean;
+  /** Whether to show remark mode toggle button */
+  enableRemarkMode?: boolean;
+  /** Get the container for remark annotations (rendered markdown div) */
+  getRemarkContainer?: () => HTMLElement | null;
+  /** Get raw markdown for remark export */
+  getRemarkRawMarkdown?: () => string;
 }
 
 /**
@@ -50,6 +67,8 @@ export interface GenerateToolbarHTMLOptions {
   initialTocClass: string;
   initialMaxWidth: string;
   initialZoom: number;
+  enableSourceToggle?: boolean;
+  enableRemarkMode?: boolean;
 }
 
 /**

@@ -25,18 +25,19 @@ import {
   extractTextFromAstCell,
   type CellMergeInfo 
 } from '../utils/table-merge-utils';
+import { computeColumnWidthsDxa } from '../utils/docx-column-width';
 
 type ConvertInlineNodesFunction = (children: InlineNode[], options?: { bold?: boolean; color?: string }) => Promise<InlineResult[]>;
 
 /** Table layout mode */
-export type TableLayout = 'left' | 'center';
+export type TableLayout = 'left' | 'center' | 'center-full-width';
 
 interface TableConverterOptions {
   themeStyles: DOCXThemeStyles;
   convertInlineNodes: ConvertInlineNodesFunction;
   /** Enable auto-merge of empty table cells */
   mergeEmptyCells?: boolean;
-  /** Table layout: 'left' or 'center' */
+  /** Table layout: 'left', 'center', or 'center-full-width' */
   tableLayout?: TableLayout;
 }
 
@@ -79,6 +80,27 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
       return cells.map(cell => extractTextFromAstCell(cell));
     });
   }
+
+  /**
+   * Extract cell text matrix from all rows (including header) for column width calculation.
+   * Colspan cells are represented as empty strings so they do not skew a single column.
+   */
+  function extractFullCellMatrix(tableRows: DOCXTableNode['children']): string[][] {
+    return tableRows.map(row => {
+      const cells = (row.children || []).filter(c => c.type === 'tableCell');
+      return cells.map(cell => {
+        const cellNode = cell as {
+          colspan?: number;
+          properties?: { colspan?: number };
+        };
+        const colspan = cellNode.colspan ?? cellNode.properties?.colspan;
+        if (typeof colspan === 'number' && colspan > 1) {
+          return '';
+        }
+        return extractTextFromAstCell(cell);
+      });
+    });
+  }
   
   /**
    * Convert table node to DOCX Table
@@ -106,6 +128,9 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
         }
       }
     }
+
+    const fullMatrix = extractFullCellMatrix(tableRows);
+    const columnWidths = computeColumnWidthsDxa(fullMatrix);
 
     for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
       const row = tableRows[rowIndex];
@@ -259,10 +284,16 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
     // This creates the visual effect of centering within the indented area
     const indentSize = listLevel > 0 ? convertInchesToTwip(0.5 * listLevel / 2) : undefined;
 
+    const hasColumnWidths = columnWidths.length > 0;
+
     return new Table({
       rows: rows,
-      layout: TableLayoutType.AUTOFIT,
-      alignment: currentLayout === 'center' ? AlignmentType.CENTER : AlignmentType.LEFT,
+      layout: hasColumnWidths ? TableLayoutType.FIXED : TableLayoutType.AUTOFIT,
+      columnWidths: hasColumnWidths ? columnWidths : undefined,
+      width: currentLayout === 'center-full-width'
+        ? { size: 100, type: WidthType.PERCENTAGE }
+        : undefined,
+      alignment: currentLayout === 'left' ? AlignmentType.LEFT : AlignmentType.CENTER,
       indent: indentSize ? { size: indentSize, type: WidthType.DXA } : undefined,
     });
   }

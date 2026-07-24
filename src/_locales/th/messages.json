@@ -151,9 +151,25 @@
     "message": "ปิด",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "คัดลอกแล้ว",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "คัดลอกโค้ด",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "คัดลอกไม่สำเร็จ",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "ดูเป็น Markdown",
     "description": "Context menu item to view any file as markdown"
+  },
+  "contextMenu_viewAsRaw": {
+    "message": "View as Raw",
+    "description": "Context menu item to restore the page to its original state"
   },
   "copy_as_png": {
     "message": "Copy as PNG",
@@ -187,13 +203,17 @@
     "message": "ส่งออกเป็น DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_html": {
+    "message": "ส่งออกเป็น HTML",
+    "description": "Export menu item for exporting to HTML"
+  },
   "export_menu_print_pdf": {
     "message": "พิมพ์เป็น PDF",
     "description": "Export menu item for printing to PDF"
   },
-  "export_menu_save_markdown": {
-    "message": "บันทึกเป็น Markdown",
-    "description": "Export menu item for saving current file as Markdown"
+  "export_menu_save_file": {
+    "message": "บันทึกไฟล์",
+    "description": "Export menu item for saving current file"
   },
   "exporting": {
     "message": "กำลังเตรียมเอกสาร Word...",
@@ -204,7 +224,7 @@
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
-    "message": "Markdown Viewer",
+    "message": "docu.md Markdown Viewer",
     "description": "Extension name"
   },
   "failed_to_open_file": {
@@ -251,14 +271,6 @@
     "message": "คัดลอก URL แล้ว วางในแถบที่อยู่เพื่อเปิด",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
-  "heading_h2_format": {
-    "message": "บทที่ {0}",
-    "description": "Format for h2 headings. {0} is the chapter number."
-  },
-  "heading_h2_numerals": {
-    "message": "arabic",
-    "description": "Numeral system for h2: chinese, arabic, roman"
-  },
   "history_clear": {
     "message": "ล้างประวัติ",
     "description": "Clear history button"
@@ -303,6 +315,22 @@
     "message": "ภาษา",
     "description": "Menu item for language"
   },
+  "lightbox_close": {
+    "message": "ปิด",
+    "description": "Tooltip for closing the diagram lightbox"
+  },
+  "lightbox_fit": {
+    "message": "พอดีกับหน้าจอ",
+    "description": "Tooltip for fitting the diagram to the lightbox viewport"
+  },
+  "lightbox_zoom_in": {
+    "message": "ซูมเข้า",
+    "description": "Tooltip for zooming in in the diagram lightbox"
+  },
+  "lightbox_zoom_out": {
+    "message": "ซูมออก",
+    "description": "Tooltip for zooming out in the diagram lightbox"
+  },
   "more": {
     "message": "More",
     "description": "More menu tooltip"
@@ -346,6 +374,122 @@
   "recent_files": {
     "message": "ไฟล์ล่าสุด",
     "description": "Title for recent files section"
+  },
+  "remark_add_note": {
+    "message": "เพิ่มหมายเหตุ…",
+    "description": "Placeholder and tooltip for adding a remark note"
+  },
+  "remark_cfg_title": {
+    "message": "โหมดคำอธิบาย",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "ลบโน้ตว่างโดยอัตโนมัติ",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "ปิดแท็บหลังจากคัดลอก",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "สีเริ่มต้น",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_font_size": {
+    "message": "ขนาดตัวอักษร",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "รูปแบบไฮไลต์",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_style_bg": {
+    "message": "พื้นหลัง",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "กรอบ",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "ขีดเส้นใต้",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "หยัก",
+    "description": "Highlight style: wavy underline"
+  },
+  "remark_clear_all": {
+    "message": "ล้างหมายเหตุทั้งหมด",
+    "description": "Tooltip for clearing all remarks"
+  },
+  "remark_color_blue": {
+    "message": "คำถาม",
+    "description": "Label for the blue remark category"
+  },
+  "remark_color_green": {
+    "message": "เก็บไว้",
+    "description": "Label for the green remark category"
+  },
+  "remark_color_pink": {
+    "message": "ข้อกังวล",
+    "description": "Label for the pink remark category"
+  },
+  "remark_color_yellow": {
+    "message": "ข้อเสนอแนะ",
+    "description": "Label for the yellow remark category"
+  },
+  "remark_copied": {
+    "message": "คัดลอกแล้ว!",
+    "description": "Temporary success state after copying remarks"
+  },
+  "remark_copy_btn": {
+    "message": "คัดลอกหมายเหตุ",
+    "description": "Button text for copying all remarks"
+  },
+  "remark_copy_failed": {
+    "message": "คัดลอกไม่สำเร็จ",
+    "description": "Temporary error state when copying remarks fails"
+  },
+  "remark_copy_tooltip": {
+    "message": "คัดลอกหมายเหตุทั้งหมดไปยังคลิปบอร์ด",
+    "description": "Tooltip for copying all remarks"
+  },
+  "remark_delete": {
+    "message": "ลบ",
+    "description": "Tooltip for deleting a remark"
+  },
+  "remark_deleted": {
+    "message": "ลบแล้ว",
+    "description": "Status label shown after a remark is deleted"
+  },
+  "remark_empty_hint": {
+    "message": "เลือกข้อความเพื่อเพิ่มหมายเหตุ",
+    "description": "Empty state hint in the remarks sidebar"
+  },
+  "remark_exit_mode": {
+    "message": "ออกจากโหมดหมายเหตุ",
+    "description": "Toolbar button title for leaving remark mode"
+  },
+  "remark_export_intro": {
+    "message": "ฉันได้ตรวจทาน **{0}** และมีข้อเสนอแนะดังนี้:",
+    "description": "Intro line for exported remarks. {0} is the file path or title."
+  },
+  "remark_export_note": {
+    "message": "หมายเหตุ",
+    "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_mode": {
+    "message": "โหมดหมายเหตุ",
+    "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_sidebar_title": {
+    "message": "หมายเหตุ",
+    "description": "Sidebar title for the remarks panel"
+  },
+  "remark_undo": {
+    "message": "เลิกทำ",
+    "description": "Button text for undoing remark deletion"
   },
   "remove_from_list": {
     "message": "Remove from list",
@@ -519,46 +663,6 @@
     "message": "บันทึกการตั้งค่าแล้ว",
     "description": "Toast when settings saved"
   },
-  "settings_support_canvas": {
-    "message": "ไดอะแกรม JSON Canvas (.canvas)",
-    "description": "Checkbox label for enabling JSON Canvas file support"
-  },
-  "settings_support_dot": {
-    "message": "ไดอะแกรม Graphviz DOT (.gv)",
-    "description": "Checkbox label for Graphviz DOT format support"
-  },
-  "settings_support_drawio": {
-    "message": "ไดอะแกรม drawio (.drawio)",
-    "description": "Checkbox label for enabling drawio file support"
-  },
-  "settings_support_infographic": {
-    "message": "อินโฟกราฟิก (.infographic)",
-    "description": "Checkbox label for Infographic format support"
-  },
-  "settings_support_mermaid": {
-    "message": "ไดอะแกรม Mermaid (.mermaid)",
-    "description": "Checkbox label for Mermaid format support"
-  },
-  "settings_support_plantuml": {
-    "message": "ไดอะแกรม PlantUML (.plantuml, .puml)",
-    "description": "Checkbox label for enabling PlantUML file support"
-  },
-  "settings_support_slidev": {
-    "message": "Slidev slides (.slides.md)",
-    "description": "Checkbox label for enabling Slidev file support"
-  },
-  "settings_support_vega": {
-    "message": "แผนภูมิ Vega (.vega)",
-    "description": "Checkbox label for Vega format support"
-  },
-  "settings_support_vega_lite": {
-    "message": "แผนภูมิ Vega-Lite (.vl, .vega-lite)",
-    "description": "Checkbox label for Vega-Lite format support"
-  },
-  "settings_supported_formats_title": {
-    "message": "รูปแบบที่รองรับ",
-    "description": "Title for supported file formats section in settings"
-  },
   "settings_swap_panel_side": {
     "message": "Swap TOC / file tree side",
     "description": "Checkbox label for swapping TOC and workspace file tree panel side"
@@ -574,6 +678,10 @@
   "settings_table_layout_center": {
     "message": "กลาง",
     "description": "Table layout option: center aligned"
+  },
+  "settings_table_layout_full_width": {
+    "message": "tem khwam kwang",
+    "description": "Option for centered tables stretched to the full content width"
   },
   "settings_table_layout_left": {
     "message": "ซ้าย",
@@ -636,8 +744,8 @@
     "description": "Toolbar layout toggle tooltip for normal mode"
   },
   "toolbar_print_disabled_title": {
-    "message": "การพิมพ์ใช้ได้เฉพาะไฟล์ภายในเครื่องเท่านั้น",
-    "description": "Tooltip when print button is disabled for remote files"
+    "message": "การพิมพ์ถูกบล็อกโดยนโยบายความปลอดภัยของหน้า (แซนด์บ็อกซ์)",
+    "description": "Tooltip when print button is disabled due to sandbox restriction"
   },
   "toolbar_print_title": {
     "message": "พิมพ์",

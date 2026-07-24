@@ -151,9 +151,25 @@
     "message": "Sulge",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Kopeeritud",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Kopeeri kood",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Kopeerimine nurjus",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Vaata Markdownina",
     "description": "Context menu item to view any file as markdown"
+  },
+  "contextMenu_viewAsRaw": {
+    "message": "View as Raw",
+    "description": "Context menu item to restore the page to its original state"
   },
   "copy_as_png": {
     "message": "Copy as PNG",
@@ -187,13 +203,17 @@
     "message": "Ekspordi DOCX-ina",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_html": {
+    "message": "Ekspordi HTML-ina",
+    "description": "Export menu item for exporting to HTML"
+  },
   "export_menu_print_pdf": {
     "message": "Prindi PDF-ina",
     "description": "Export menu item for printing to PDF"
   },
-  "export_menu_save_markdown": {
-    "message": "Salvesta Markdownina",
-    "description": "Export menu item for saving current file as Markdown"
+  "export_menu_save_file": {
+    "message": "Salvesta fail",
+    "description": "Export menu item for saving current file"
   },
   "exporting": {
     "message": "Word dokumendi ettevalmistamine...",
@@ -204,7 +224,7 @@
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
-    "message": "Markdown Viewer",
+    "message": "docu.md Markdown Viewer",
     "description": "Extension name"
   },
   "failed_to_open_file": {
@@ -251,14 +271,6 @@
     "message": "URL kopeeritud. Kleebi aadressiribale avamiseks.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
-  "heading_h2_format": {
-    "message": "Peatükk {0}",
-    "description": "Format for h2 headings. {0} is the chapter number."
-  },
-  "heading_h2_numerals": {
-    "message": "arabic",
-    "description": "Numeral system for h2: chinese, arabic, roman"
-  },
   "history_clear": {
     "message": "Kustuta ajalugu",
     "description": "Clear history button"
@@ -303,6 +315,22 @@
     "message": "Keel",
     "description": "Menu item for language"
   },
+  "lightbox_close": {
+    "message": "Sulge",
+    "description": "Tooltip for closing the diagram lightbox"
+  },
+  "lightbox_fit": {
+    "message": "Mahuta ekraanile",
+    "description": "Tooltip for fitting the diagram to the lightbox viewport"
+  },
+  "lightbox_zoom_in": {
+    "message": "Suurenda",
+    "description": "Tooltip for zooming in in the diagram lightbox"
+  },
+  "lightbox_zoom_out": {
+    "message": "Vähenda",
+    "description": "Tooltip for zooming out in the diagram lightbox"
+  },
   "more": {
     "message": "Rohkem",
     "description": "More options menu"
@@ -346,6 +374,122 @@
   "recent_files": {
     "message": "Hiljutised failid",
     "description": "Title for recent files section"
+  },
+  "remark_add_note": {
+    "message": "Lisa märkus…",
+    "description": "Placeholder and tooltip for adding a remark note"
+  },
+  "remark_cfg_title": {
+    "message": "Märkuste režiim",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Kustuta tühjad märkmed automaatselt",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Sulge vahekaart pärast kopeerimist",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Vaikevärv",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_font_size": {
+    "message": "Kirjasuurus",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Esiletõstmise stiil",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Taust",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Raam",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Allajoonitud",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Laineline",
+    "description": "Highlight style: wavy underline"
+  },
+  "remark_clear_all": {
+    "message": "Kustuta kõik märkmed",
+    "description": "Tooltip for clearing all remarks"
+  },
+  "remark_color_blue": {
+    "message": "Küsimus",
+    "description": "Label for the blue remark category"
+  },
+  "remark_color_green": {
+    "message": "Jäta alles",
+    "description": "Label for the green remark category"
+  },
+  "remark_color_pink": {
+    "message": "Mure",
+    "description": "Label for the pink remark category"
+  },
+  "remark_color_yellow": {
+    "message": "Soovitus",
+    "description": "Label for the yellow remark category"
+  },
+  "remark_copied": {
+    "message": "Kopeeritud!",
+    "description": "Temporary success state after copying remarks"
+  },
+  "remark_copy_btn": {
+    "message": "Kopeeri märkmed",
+    "description": "Button text for copying all remarks"
+  },
+  "remark_copy_failed": {
+    "message": "Kopeerimine ebaõnnestus",
+    "description": "Temporary error state when copying remarks fails"
+  },
+  "remark_copy_tooltip": {
+    "message": "Kopeeri kõik märkmed lõikelauale",
+    "description": "Tooltip for copying all remarks"
+  },
+  "remark_delete": {
+    "message": "Kustuta",
+    "description": "Tooltip for deleting a remark"
+  },
+  "remark_deleted": {
+    "message": "Kustutatud",
+    "description": "Status label shown after a remark is deleted"
+  },
+  "remark_empty_hint": {
+    "message": "Vali tekst märkmete lisamiseks",
+    "description": "Empty state hint in the remarks sidebar"
+  },
+  "remark_exit_mode": {
+    "message": "Välju märkmete režiimist",
+    "description": "Toolbar button title for leaving remark mode"
+  },
+  "remark_export_intro": {
+    "message": "Vaatasin üle **{0}** ja mul on järgmine tagasiside:",
+    "description": "Intro line for exported remarks. {0} is the file path or title."
+  },
+  "remark_export_note": {
+    "message": "Märkus",
+    "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_mode": {
+    "message": "Märkmete režiim",
+    "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_sidebar_title": {
+    "message": "Märkmed",
+    "description": "Sidebar title for the remarks panel"
+  },
+  "remark_undo": {
+    "message": "Võta tagasi",
+    "description": "Button text for undoing remark deletion"
   },
   "remove_from_list": {
     "message": "Eemalda loendist",
@@ -519,46 +663,6 @@
     "message": "Sätted salvestatud",
     "description": "Toast when settings saved"
   },
-  "settings_support_canvas": {
-    "message": "JSON Canvas diagrammid (.canvas)",
-    "description": "Checkbox label for enabling JSON Canvas file support"
-  },
-  "settings_support_dot": {
-    "message": "Graphviz DOT diagrammid (.gv)",
-    "description": "Checkbox label for enabling DOT file support"
-  },
-  "settings_support_drawio": {
-    "message": "drawio diagrammid (.drawio)",
-    "description": "Checkbox label for enabling drawio file support"
-  },
-  "settings_support_infographic": {
-    "message": "Infograafika (.infographic)",
-    "description": "Checkbox label for enabling infographic file support"
-  },
-  "settings_support_mermaid": {
-    "message": "Mermaid diagrammid (.mermaid)",
-    "description": "Checkbox label for enabling Mermaid file support"
-  },
-  "settings_support_plantuml": {
-    "message": "PlantUML diagrammid (.plantuml, .puml)",
-    "description": "Checkbox label for enabling PlantUML file support"
-  },
-  "settings_support_slidev": {
-    "message": "Slidev slides (.slides.md)",
-    "description": "Checkbox label for enabling Slidev file support"
-  },
-  "settings_support_vega": {
-    "message": "Vega diagrammid (.vega)",
-    "description": "Checkbox label for enabling Vega file support"
-  },
-  "settings_support_vega_lite": {
-    "message": "Vega-Lite diagrammid (.vl, .vega-lite)",
-    "description": "Checkbox label for enabling Vega-Lite file support"
-  },
-  "settings_supported_formats_title": {
-    "message": "Toetatud vormingud",
-    "description": "Heading for supported formats section"
-  },
   "settings_swap_panel_side": {
     "message": "Swap TOC / file tree side",
     "description": "Checkbox label for swapping TOC and workspace file tree panel side"
@@ -574,6 +678,10 @@
   "settings_table_layout_center": {
     "message": "Keskel",
     "description": "Table layout option: center aligned"
+  },
+  "settings_table_layout_full_width": {
+    "message": "Taislaius",
+    "description": "Option for centered tables stretched to the full content width"
   },
   "settings_table_layout_left": {
     "message": "Vasakul",
@@ -636,8 +744,8 @@
     "description": "Toolbar layout toggle tooltip for normal mode"
   },
   "toolbar_print_disabled_title": {
-    "message": "Printimine on saadaval ainult kohalike failide jaoks",
-    "description": "Tooltip when print button is disabled for remote files"
+    "message": "Printimine on lehe turbepoliitika (liivakast) tõttu blokeeritud",
+    "description": "Tooltip when print button is disabled due to sandbox restriction"
   },
   "toolbar_print_title": {
     "message": "Prindi",

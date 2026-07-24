@@ -15,7 +15,8 @@ export default defineComponent({
     return () => {
       const slides: any[] = (window as any).__SLIDEV__?.slides ?? []
       const slide = slides.find((s: any) => s.no === props.no)
-      return h('span', slide?.title ?? `Slide ${props.no}`)
+      const fallbackTitle = Number.isFinite(props.no) ? `Slide ${props.no}` : 'Slide'
+      return h('span', slide?.title ?? fallbackTitle)
     }
   },
 })

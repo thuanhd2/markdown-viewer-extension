@@ -22,8 +22,6 @@ import type {
   IParagraphStylePropertiesOptions,
 } from 'docx';
 import { mathJaxReady, convertLatex2Math } from './docx-math-converter';
-import { loadImageAsBuffer } from '../utils/image-loader';
-import { isNetworkUrl } from '../utils/document-url';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkInlineHtml from '../plugins/remark-inline-html';
@@ -61,6 +59,7 @@ import { createTableConverter, type TableConverter } from './docx-table-converte
 import { createBlockquoteConverter, type BlockquoteConverter } from './docx-blockquote-converter';
 import { createListConverter, createNumberingLevels, type ListConverter } from './docx-list-converter';
 import { createInlineConverter, type InlineConverter, type InlineNode } from './docx-inline-converter';
+import { ResourceEmbedder } from './resource-embedder';
 
 // Re-export for external use
 export { convertPluginResultToDOCX } from './docx-image-utils';
@@ -93,12 +92,13 @@ class DocxExporter {
   private progressCallback: DOCXProgressCallback | null = null;
   private totalResources = 0;
   private processedResources = 0;
+  private resourceEmbedder: ResourceEmbedder;
 
   private docxHrDisplay: 'pageBreak' | 'line' | 'hide' = 'hide';
   private docxEmojiStyle: EmojiStyle = 'windows';
   private frontmatterDisplay: FrontmatterDisplay = 'hide';
   private tableMergeEmpty = true;  // Default: enabled
-  private tableLayout: 'left' | 'center' = 'center';  // Default: center
+  private tableLayout: 'left' | 'center' | 'center-full-width' = 'center';  // Default: center
   
   // Converters (initialized in exportToDocx)
   private tableConverter: TableConverter | null = null;
@@ -108,6 +108,7 @@ class DocxExporter {
 
   constructor(renderer: PluginRenderer | null = null) {
     this.renderer = renderer;
+    this.resourceEmbedder = new ResourceEmbedder();
   }
 
   setBaseUrl(url: string): void {
@@ -118,6 +119,7 @@ class DocxExporter {
       // Extract file path from file:// URL
       const filePath = url.startsWith('file://') ? url.replace('file://', '') : url;
       doc.setDocumentPath(filePath);
+      this.resourceEmbedder.setDocumentService(doc);
     }
   }
 
@@ -207,146 +209,171 @@ class DocxExporter {
     this.listConverter.setConvertChildNode((node, listLevel) => this.convertNode(node, {}, listLevel));
   }
 
+  /**
+   * Build the DOCX Document and return it as a Blob without triggering a
+   * browser download. Used by non-browser callers (e.g. the CLI) that need
+   * the raw bytes.
+   *
+   * `baseUrl`, when provided, sets the document context explicitly (used by
+   * the CLI, which does not have a meaningful window.location for the
+   * source Markdown file). Browser callers can omit it and fall back to
+   * window.location.href.
+   */
+  async exportToDocxBlob(
+    markdown: string,
+    filename = 'document.docx',
+    onProgress: DOCXProgressCallback | null = null,
+    baseUrl?: string
+  ): Promise<{ blob: Blob; filename: string }> {
+    if (baseUrl) {
+      this.setBaseUrl(baseUrl);
+    } else if (typeof window !== 'undefined' && window.location?.href) {
+      this.setBaseUrl(window.location.href);
+    }
+
+    // Load export-related settings via platform.settings service
+    try {
+      const settings = globalThis.platform?.settings;
+      if (settings) {
+        const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout] = await Promise.all([
+          settings.get('docxHrDisplay'),
+          settings.get('docxEmojiStyle'),
+          settings.get('frontmatterDisplay'),
+          settings.get('tableMergeEmpty'),
+          settings.get('tableLayout'),
+        ]);
+        this.docxHrDisplay = hrDisplay;
+        this.docxEmojiStyle = emojiStyle;
+        this.frontmatterDisplay = frontmatterDisplay;
+        this.tableMergeEmpty = tableMergeEmpty;
+        this.tableLayout = tableLayout || 'center';
+      } else {
+        this.docxHrDisplay = 'hide';
+        this.frontmatterDisplay = 'hide';
+        this.tableMergeEmpty = true;
+        this.tableLayout = 'center';
+      }
+    } catch {
+      this.docxHrDisplay = 'hide';
+      this.frontmatterDisplay = 'hide';
+      this.tableMergeEmpty = true;
+      this.tableLayout = 'center';
+    }
+
+    const selectedThemeId = await themeManager.loadSelectedTheme();
+    this.themeStyles = await loadThemeForDOCX(selectedThemeId);
+    if (!this.themeStyles) {
+      throw new Error('Failed to load DOCX theme');
+    }
+    this.codeHighlighter = createCodeHighlighter(this.themeStyles);
+
+    this.progressCallback = onProgress;
+    this.totalResources = 0;
+    this.processedResources = 0;
+
+    await this.initializeMathJax();
+
+    const ast = this.parseMarkdown(markdown);
+    this.totalResources = this.countResources(ast);
+
+    // Report initial progress (0%)
+    // Progress is split: 0-20% for rendering, 20-80% for packing, 80-100% for upload
+    if (onProgress) {
+      onProgress(0, 100);
+    }
+
+    // Initialize converters after theme is loaded
+    this.initializeConverters();
+
+    const tRenderStart = performance.now();
+    const docChildren = await this.convertAstToDocx(ast);
+    const renderTime = performance.now() - tRenderStart;
+
+    const paragraphStyles = Object.values(this.themeStyles.paragraphStyles).map((style) => ({
+      id: style.id,
+      ...this.toParagraphStyle(style),
+    }));
+
+    const styles: IStylesOptions = {
+      default: {
+        document: this.toDocumentDefaults(this.themeStyles.default),
+      },
+      paragraphStyles,
+    };
+
+    const doc = new Document({
+      creator: 'Markdown Viewer Extension',
+      lastModifiedBy: 'Markdown Viewer Extension',
+      ...(this.themeStyles?.pageBackground
+        ? { background: { color: this.themeStyles.pageBackground } }
+        : {}),
+      numbering: {
+        config: [
+          {
+            reference: 'default-ordered-list',
+            levels: createNumberingLevels(),
+          },
+        ],
+      },
+      styles,
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: {
+                top: convertInchesToTwip(1),
+                right: convertInchesToTwip(1),
+                bottom: convertInchesToTwip(1),
+                left: convertInchesToTwip(1),
+              },
+            },
+          },
+          children: docChildren,
+        },
+      ],
+    });
+
+    // Phase 2: Packing DOCX (30-85%)
+    // Estimate toBlob time based on render time (empirically ~1.8x)
+    const estimatedToBlobTime = renderTime * 1.8;
+    const t0 = performance.now();
+
+    // Simulate progress with timer, stop at 84% to avoid jumping backward
+    let simulatedProgress = 30;
+    const progressInterval = onProgress ? setInterval(() => {
+      const elapsed = performance.now() - t0;
+      // Calculate expected progress based on elapsed time
+      const expectedProgress = Math.min(84, 30 + (elapsed / estimatedToBlobTime) * 55);
+      if (expectedProgress > simulatedProgress) {
+        simulatedProgress = Math.round(expectedProgress);
+        onProgress!(simulatedProgress, 100);
+      }
+    }, 100) : null;
+
+    const blob = await Packer.toBlob(doc);
+
+    // Clear timer and jump to actual position
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+
+    return { blob, filename };
+  }
+
   async exportToDocx(
     markdown: string,
     filename = 'document.docx',
     onProgress: DOCXProgressCallback | null = null
   ): Promise<DOCXExportResult> {
     try {
-      this.setBaseUrl(window.location.href);
-
-      // Load export-related settings via platform.settings service
-      try {
-        const settings = globalThis.platform?.settings;
-        if (settings) {
-          const [hrDisplay, emojiStyle, frontmatterDisplay, tableMergeEmpty, tableLayout] = await Promise.all([
-            settings.get('docxHrDisplay'),
-            settings.get('docxEmojiStyle'),
-            settings.get('frontmatterDisplay'),
-            settings.get('tableMergeEmpty'),
-            settings.get('tableLayout'),
-          ]);
-          this.docxHrDisplay = hrDisplay;
-          this.docxEmojiStyle = emojiStyle;
-          this.frontmatterDisplay = frontmatterDisplay;
-          this.tableMergeEmpty = tableMergeEmpty;
-          this.tableLayout = tableLayout || 'center';
-        } else {
-          this.docxHrDisplay = 'hide';
-          this.frontmatterDisplay = 'hide';
-          this.tableMergeEmpty = true;
-          this.tableLayout = 'center';
-        }
-      } catch {
-        this.docxHrDisplay = 'hide';
-        this.frontmatterDisplay = 'hide';
-        this.tableMergeEmpty = true;
-        this.tableLayout = 'center';
-      }
-
-      const selectedThemeId = await themeManager.loadSelectedTheme();
-      this.themeStyles = await loadThemeForDOCX(selectedThemeId);
-      if (!this.themeStyles) {
-        throw new Error('Failed to load DOCX theme');
-      }
-      this.codeHighlighter = createCodeHighlighter(this.themeStyles);
-
-      this.progressCallback = onProgress;
-      this.totalResources = 0;
-      this.processedResources = 0;
-
-      await this.initializeMathJax();
-
-      const ast = this.parseMarkdown(markdown);
-      this.totalResources = this.countResources(ast);
-
-      // Report initial progress (0%)
-      // Progress is split: 0-20% for rendering, 20-80% for packing, 80-100% for upload
-      if (onProgress) {
-        onProgress(0, 100);
-      }
-
-      // Initialize converters after theme is loaded
-      this.initializeConverters();
-
-      const tRenderStart = performance.now();
-      const docChildren = await this.convertAstToDocx(ast);
-      const renderTime = performance.now() - tRenderStart;
-
-      const paragraphStyles = Object.values(this.themeStyles.paragraphStyles).map((style) => ({
-        id: style.id,
-        ...this.toParagraphStyle(style),
-      }));
-
-      const styles: IStylesOptions = {
-        default: {
-          document: this.toDocumentDefaults(this.themeStyles.default),
-        },
-        paragraphStyles,
-      };
-
-      const doc = new Document({
-        creator: 'Markdown Viewer Extension',
-        lastModifiedBy: 'Markdown Viewer Extension',
-        ...(this.themeStyles?.pageBackground
-          ? { background: { color: this.themeStyles.pageBackground } }
-          : {}),
-        numbering: {
-          config: [
-            {
-              reference: 'default-ordered-list',
-              levels: createNumberingLevels(),
-            },
-          ],
-        },
-        styles,
-        sections: [
-          {
-            properties: {
-              page: {
-                margin: {
-                  top: convertInchesToTwip(1),
-                  right: convertInchesToTwip(1),
-                  bottom: convertInchesToTwip(1),
-                  left: convertInchesToTwip(1),
-                },
-              },
-            },
-            children: docChildren,
-          },
-        ],
-      });
-
-      // Phase 2: Packing DOCX (30-85%)
-      // Estimate toBlob time based on render time (empirically ~1.8x)
-      const estimatedToBlobTime = renderTime * 1.8;
-      const t0 = performance.now();
-      
-      // Simulate progress with timer, stop at 84% to avoid jumping backward
-      let simulatedProgress = 30;
-      const progressInterval = onProgress ? setInterval(() => {
-        const elapsed = performance.now() - t0;
-        // Calculate expected progress based on elapsed time
-        const expectedProgress = Math.min(84, 30 + (elapsed / estimatedToBlobTime) * 55);
-        if (expectedProgress > simulatedProgress) {
-          simulatedProgress = Math.round(expectedProgress);
-          onProgress!(simulatedProgress, 100);
-        }
-      }, 100) : null;
-
-      const blob = await Packer.toBlob(doc);
-
-      // Clear timer and jump to actual position
-      if (progressInterval) {
-        clearInterval(progressInterval);
-      }
+      const { blob, filename: fname } = await this.exportToDocxBlob(markdown, filename, onProgress);
 
       // Phase 3: Upload (85-100%)
       if (onProgress) {
         onProgress(85, 100);
       }
 
-      await downloadBlob(blob, filename, onProgress
+      await downloadBlob(blob, fname, onProgress
         ? (uploaded: number, total: number) => {
             // Map upload progress to 85-100%
             const uploadProgress = total > 0 ? (uploaded / total) : 1;
@@ -366,7 +393,7 @@ class DocxExporter {
     } finally {
       this.progressCallback = null;
       this.totalResources = 0;
-      this.processedResources = 0;  
+      this.processedResources = 0;
     }
   }
 
@@ -644,6 +671,21 @@ class DocxExporter {
         }));
       }
 
+      // Handle cross-type gap: both table and blockquote produce DOCX Table objects,
+      // so consecutive different types need a spacer paragraph between them.
+      if ((node.type === 'blockquote' && lastNodeType === 'table') ||
+          (node.type === 'table' && lastNodeType === 'blockquote')) {
+        // Use the previous element's "after" spacing
+        const prevGap = lastNodeType === 'table'
+          ? this.themeStyles?.blockSpacing?.table
+          : this.themeStyles?.blockSpacing?.blockquote;
+        const prevAfter = prevGap?.after ?? 120;
+        elements.push(new Paragraph({
+          text: '',
+          spacing: { before: prevAfter, after: prevAfter, line: 240 },
+        }));
+      }
+
       const converted = await this.convertNode(node);
       if (converted) {
         if (Array.isArray(converted)) {
@@ -735,10 +777,17 @@ class DocxExporter {
       5: HeadingLevel.HEADING_5, 6: HeadingLevel.HEADING_6,
     };
     const depth = node.depth || 1;
+    const headingStyle = this.themeStyles?.paragraphStyles?.[`Heading${depth}`]?.run;
 
     // Convert inline nodes to support styles (bold, italic, code, etc.)
     const children = await this.inlineConverter!.convertInlineNodes(
-      (node.children || []) as unknown as InlineNode[]
+      (node.children || []) as unknown as InlineNode[],
+      {
+        size: headingStyle?.size,
+        bold: headingStyle?.bold,
+        font: headingStyle?.font,
+        color: headingStyle?.color,
+      }
     );
 
     const config: {
@@ -918,67 +967,13 @@ class DocxExporter {
     if (this.imageCache.has(url)) {
       return this.imageCache.get(url)!;
     }
-
-    // Handle data: URLs directly
-    if (url.startsWith('data:')) {
-      const match = url.match(/^data:([^;,]+)[^,]*,(.+)$/);
-      if (!match) throw new Error('Invalid data URL format');
-
-      const contentType = match[1];
-      const binaryString = atob(match[2]);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const result: ImageBufferResult = { buffer: bytes, contentType };
+    try {
+      const result = await this.resourceEmbedder.fetchImageAsBuffer(url);
       this.imageCache.set(url, result);
       return result;
-    }
-
-    const doc = this.getDocumentService();
-    if (!doc) {
-      throw new Error('DocumentService not available - platform not initialized');
-    }
-
-    try {
-      if (isNetworkUrl(url)) {
-        // Use <img> + canvas to load remote images (bypasses fetch/CSP restrictions)
-        const imgResult = await loadImageAsBuffer(url);
-        if (!imgResult) {
-          throw new Error(`Failed to load remote image: ${url}`);
-        }
-        const result: ImageBufferResult = { buffer: imgResult.buffer, contentType: 'image/png' };
-        this.imageCache.set(url, result);
-        return result;
-      } else {
-        // Use DocumentService.readRelativeFile for local files
-        const content = await doc.readRelativeFile(url, { binary: true });
-        const binaryString = atob(content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const contentType = this.guessContentType(url);
-        const result: ImageBufferResult = { buffer: bytes, contentType };
-        this.imageCache.set(url, result);
-        return result;
-      }
     } catch (error) {
       throw new Error(`Failed to fetch image: ${url} - ${(error as Error).message}`);
     }
-  }
-
-  /**
-   * Guess content type from URL extension
-   */
-  private guessContentType(url: string): string {
-    const ext = url.split('.').pop()?.toLowerCase().split('?')[0] || '';
-    const map: Record<string, string> = {
-      'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
-      'gif': 'image/gif', 'bmp': 'image/bmp', 'webp': 'image/webp', 'svg': 'image/svg+xml'
-    };
-    return map[ext] || 'image/png';
   }
 }
 

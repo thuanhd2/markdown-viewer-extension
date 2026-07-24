@@ -151,9 +151,25 @@
     "message": "Закрити",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Скопійовано",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Скопіювати код",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Не вдалося скопіювати",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Переглянути як Markdown",
     "description": "Context menu item to view any file as markdown"
+  },
+  "contextMenu_viewAsRaw": {
+    "message": "View as Raw",
+    "description": "Context menu item to restore the page to its original state"
   },
   "copy_as_png": {
     "message": "Copy as PNG",
@@ -187,13 +203,17 @@
     "message": "Експортувати в DOCX",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_html": {
+    "message": "Експортувати в HTML",
+    "description": "Export menu item for exporting to HTML"
+  },
   "export_menu_print_pdf": {
     "message": "Друкувати в PDF",
     "description": "Export menu item for printing to PDF"
   },
-  "export_menu_save_markdown": {
-    "message": "Зберегти як Markdown",
-    "description": "Export menu item for saving current file as Markdown"
+  "export_menu_save_file": {
+    "message": "Зберегти файл",
+    "description": "Export menu item for saving current file"
   },
   "exporting": {
     "message": "Підготовка Word-документа...",
@@ -204,7 +224,7 @@
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
-    "message": "Markdown Viewer",
+    "message": "docu.md Markdown Viewer",
     "description": "Extension name"
   },
   "failed_to_open_file": {
@@ -251,14 +271,6 @@
     "message": "URL скопійовано. Вставте в адресний рядок для відкриття.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
-  "heading_h2_format": {
-    "message": "Розділ {0}",
-    "description": "Format for h2 headings. {0} is the chapter number."
-  },
-  "heading_h2_numerals": {
-    "message": "arabic",
-    "description": "Numeral system for h2: chinese, arabic, roman"
-  },
   "history_clear": {
     "message": "Очистити історію",
     "description": "Clear history button"
@@ -303,6 +315,22 @@
     "message": "Мова",
     "description": "Menu item for language"
   },
+  "lightbox_close": {
+    "message": "Закрити",
+    "description": "Tooltip for closing the diagram lightbox"
+  },
+  "lightbox_fit": {
+    "message": "Умістити на екрані",
+    "description": "Tooltip for fitting the diagram to the lightbox viewport"
+  },
+  "lightbox_zoom_in": {
+    "message": "Збільшити масштаб",
+    "description": "Tooltip for zooming in in the diagram lightbox"
+  },
+  "lightbox_zoom_out": {
+    "message": "Зменшити масштаб",
+    "description": "Tooltip for zooming out in the diagram lightbox"
+  },
   "more": {
     "message": "Більше",
     "description": "More options menu"
@@ -346,6 +374,122 @@
   "recent_files": {
     "message": "Останні файли",
     "description": "Title for recent files section"
+  },
+  "remark_add_note": {
+    "message": "Додати примітку…",
+    "description": "Placeholder and tooltip for adding a remark note"
+  },
+  "remark_cfg_title": {
+    "message": "Режим анотацій",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Автовидалення порожніх нотаток",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Закрити вкладку після копіювання",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Колір за замовчуванням",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_font_size": {
+    "message": "Розмір шрифту",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Стиль виділення",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Фон",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Рамка",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Підкреслення",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Хвилястий",
+    "description": "Highlight style: wavy underline"
+  },
+  "remark_clear_all": {
+    "message": "Очистити всі примітки",
+    "description": "Tooltip for clearing all remarks"
+  },
+  "remark_color_blue": {
+    "message": "Питання",
+    "description": "Label for the blue remark category"
+  },
+  "remark_color_green": {
+    "message": "Залишити",
+    "description": "Label for the green remark category"
+  },
+  "remark_color_pink": {
+    "message": "Застереження",
+    "description": "Label for the pink remark category"
+  },
+  "remark_color_yellow": {
+    "message": "Пропозиція",
+    "description": "Label for the yellow remark category"
+  },
+  "remark_copied": {
+    "message": "Скопійовано!",
+    "description": "Temporary success state after copying remarks"
+  },
+  "remark_copy_btn": {
+    "message": "Скопіювати примітки",
+    "description": "Button text for copying all remarks"
+  },
+  "remark_copy_failed": {
+    "message": "Не вдалося скопіювати",
+    "description": "Temporary error state when copying remarks fails"
+  },
+  "remark_copy_tooltip": {
+    "message": "Скопіювати всі примітки до буфера обміну",
+    "description": "Tooltip for copying all remarks"
+  },
+  "remark_delete": {
+    "message": "Видалити",
+    "description": "Tooltip for deleting a remark"
+  },
+  "remark_deleted": {
+    "message": "Видалено",
+    "description": "Status label shown after a remark is deleted"
+  },
+  "remark_empty_hint": {
+    "message": "Виділіть текст, щоб додати примітки",
+    "description": "Empty state hint in the remarks sidebar"
+  },
+  "remark_exit_mode": {
+    "message": "Вийти з режиму приміток",
+    "description": "Toolbar button title for leaving remark mode"
+  },
+  "remark_export_intro": {
+    "message": "Я переглянув **{0}** і маю такі зауваження:",
+    "description": "Intro line for exported remarks. {0} is the file path or title."
+  },
+  "remark_export_note": {
+    "message": "Примітка",
+    "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_mode": {
+    "message": "Режим приміток",
+    "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_sidebar_title": {
+    "message": "Примітки",
+    "description": "Sidebar title for the remarks panel"
+  },
+  "remark_undo": {
+    "message": "Скасувати",
+    "description": "Button text for undoing remark deletion"
   },
   "remove_from_list": {
     "message": "Видалити зі списку",
@@ -519,46 +663,6 @@
     "message": "Налаштування збережено",
     "description": "Toast when settings saved"
   },
-  "settings_support_canvas": {
-    "message": "JSON Canvas діаграми (.canvas)",
-    "description": "Checkbox label for enabling JSON Canvas file support"
-  },
-  "settings_support_dot": {
-    "message": "Діаграми Graphviz DOT (.gv)",
-    "description": "Checkbox label for enabling DOT file support"
-  },
-  "settings_support_drawio": {
-    "message": "drawio діаграми (.drawio)",
-    "description": "Checkbox label for enabling drawio file support"
-  },
-  "settings_support_infographic": {
-    "message": "Інфографіка (.infographic)",
-    "description": "Checkbox label for enabling infographic file support"
-  },
-  "settings_support_mermaid": {
-    "message": "Діаграми Mermaid (.mermaid)",
-    "description": "Checkbox label for enabling Mermaid file support"
-  },
-  "settings_support_plantuml": {
-    "message": "PlantUML діаграми (.plantuml, .puml)",
-    "description": "Checkbox label for enabling PlantUML file support"
-  },
-  "settings_support_slidev": {
-    "message": "Slidev slides (.slides.md)",
-    "description": "Checkbox label for enabling Slidev file support"
-  },
-  "settings_support_vega": {
-    "message": "Графіки Vega (.vega)",
-    "description": "Checkbox label for enabling Vega file support"
-  },
-  "settings_support_vega_lite": {
-    "message": "Графіки Vega-Lite (.vl, .vega-lite)",
-    "description": "Checkbox label for enabling Vega-Lite file support"
-  },
-  "settings_supported_formats_title": {
-    "message": "Підтримувані формати",
-    "description": "Heading for supported formats section"
-  },
   "settings_swap_panel_side": {
     "message": "Swap TOC / file tree side",
     "description": "Checkbox label for swapping TOC and workspace file tree panel side"
@@ -574,6 +678,10 @@
   "settings_table_layout_center": {
     "message": "По центру",
     "description": "Table layout option: center aligned"
+  },
+  "settings_table_layout_full_width": {
+    "message": "Na vsiu shyrynu",
+    "description": "Option for centered tables stretched to the full content width"
   },
   "settings_table_layout_left": {
     "message": "Зліва",
@@ -636,8 +744,8 @@
     "description": "Toolbar layout toggle tooltip for normal mode"
   },
   "toolbar_print_disabled_title": {
-    "message": "Друк доступний лише для локальних файлів",
-    "description": "Tooltip when print button is disabled for remote files"
+    "message": "Друк заблоковано політикою безпеки сторінки (пісочниця)",
+    "description": "Tooltip when print button is disabled due to sandbox restriction"
   },
   "toolbar_print_title": {
     "message": "Друк",

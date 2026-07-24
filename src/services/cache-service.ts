@@ -75,7 +75,8 @@ export class CacheService {
       const fontFamily = themeConfig.fontFamily || '';
       const fontSize = themeConfig.fontSize || '';
       const diagramStyle = themeConfig.diagramStyle || 'normal';
-      keyContent = `${content}_font:${fontFamily}_size:${fontSize}_style:${diagramStyle}`;
+      const colorSchema = themeConfig.colorSchema || '';
+      keyContent = `${content}_font:${fontFamily}_size:${fontSize}_style:${diagramStyle}_schema:${colorSchema}`;
     }
     
     const hash = await this.calculateHash(keyContent);

@@ -16,6 +16,10 @@ export interface ShowActionMenuOptions {
   anchor?: HTMLElement;
   x?: number;
   y?: number;
+  className?: string;
+  rightAligned?: boolean;
+  rightMargin?: number;
+  container?: HTMLElement;
 }
 
 let cssInjected = false;
@@ -39,13 +43,21 @@ function injectCSS(): void {
   min-width: 0;
   max-width: min(calc(100vw - 16px), 320px);
   padding: 4px 0;
-  background: var(--color-bg-surface, var(--vscode-menu-background, #ffffff));
-  color: var(--color-text-primary, var(--vscode-menu-foreground, #1a1a1a));
-  border: 1px solid var(--color-border, var(--vscode-menu-border, #e2e8f0));
+  background: var(--color-bg-surface, #ffffff);
+  color: var(--color-text-primary, #1a1a1a);
+  border: 1px solid var(--color-border, #e2e8f0);
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-popover, 0 2px 8px rgba(0, 0, 0, 0.15));
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.mv-action-menu button {
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  box-shadow: none;
+  text-transform: none;
 }
 
 .mv-action-menu-item {
@@ -64,8 +76,8 @@ function injectCSS(): void {
 }
 
 .mv-action-menu-item:hover:not(:disabled) {
-  background: var(--color-primary, var(--vscode-menu-selectionBackground, #2563eb));
-  color: var(--vscode-menu-selectionForeground, #ffffff);
+  background: var(--color-nav-active-bg, #eff6ff);
+  color: var(--color-nav-active-text, #2563eb);
 }
 
 .mv-action-menu-item:disabled {
@@ -76,7 +88,46 @@ function injectCSS(): void {
 .mv-action-menu-separator {
   height: 1px;
   margin: 4px 8px;
-  background: var(--color-border, var(--vscode-menu-separatorBackground, #e2e8f0));
+  background: var(--color-border, #e2e8f0);
+}
+
+.mv-action-menu.mv-action-menu-panel {
+  width: 240px;
+  min-width: 240px;
+  max-width: min(calc(100vw - 16px), 320px);
+  padding: 6px;
+  background: var(--color-bg-surface, #ffffff);
+  color: var(--color-text-primary, #0f172a);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 4px;
+  box-shadow: var(--shadow-popover, 0 2px 8px rgba(0, 0, 0, 0.15));
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.mv-action-menu.mv-action-menu-panel .mv-action-menu-item {
+  border-left: 2px solid transparent;
+  border-radius: 0 4px 4px 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.mv-action-menu.mv-action-menu-panel .mv-action-menu-item:hover:not(:disabled),
+.mv-action-menu.mv-action-menu-panel .mv-action-menu-item:focus-visible:not(:disabled) {
+  background: var(--gray-100, #f3f4f6);
+  color: var(--color-text-primary, #0f172a);
+}
+
+.mv-action-menu.mv-action-menu-panel .mv-action-menu-item:active:not(:disabled) {
+  border-left-color: var(--color-nav-active-border, #2563eb);
+  background: var(--color-nav-active-bg, #eff6ff);
+  color: var(--color-nav-active-text, #2563eb);
+}
+
+.mv-action-menu.mv-action-menu-panel .mv-action-menu-separator {
+  margin: 6px 4px;
+  background: var(--color-border, #e2e8f0);
 }
 `;
   document.head.appendChild(style);
@@ -97,6 +148,12 @@ export function showActionMenu(options: ShowActionMenuOptions): ActionMenuHandle
 
   const menu = document.createElement('div');
   menu.className = 'mv-action-menu';
+  if (options.className) {
+    options.className
+      .split(/\s+/)
+      .filter(Boolean)
+      .forEach((className) => menu.classList.add(className));
+  }
   menu.setAttribute('role', 'menu');
 
   const items = options.items.filter((item) => item.separator || item.label);
@@ -125,16 +182,25 @@ export function showActionMenu(options: ShowActionMenuOptions): ActionMenuHandle
     menu.appendChild(button);
   }
 
-  document.body.appendChild(menu);
+  (options.container || document.body).appendChild(menu);
 
   let left = options.x ?? 8;
   let top = options.y ?? 8;
-  if (options.anchor) {
+  if (options.rightAligned) {
+    const resolvedTop = Number.isFinite(top) ? top : 8;
+    const resolvedRight = Math.max(8, options.rightMargin ?? 13);
+    menu.style.position = 'fixed';
+    menu.style.setProperty('top', `${resolvedTop}px`, 'important');
+    menu.style.setProperty('left', 'auto', 'important');
+    menu.style.setProperty('right', `${resolvedRight}px`, 'important');
+  } else if (options.anchor) {
     const rect = options.anchor.getBoundingClientRect();
     left = rect.right - menu.getBoundingClientRect().width;
     top = rect.bottom + 6;
+    clampPosition(menu, left, top);
+  } else {
+    clampPosition(menu, left, top);
   }
-  clampPosition(menu, left, top);
 
   const onPointerDown = (event: MouseEvent) => {
     const target = event.target as Node | null;

@@ -14,6 +14,8 @@ import themeManager from './theme-manager';
 import { fetchJSON } from './fetch-utils';
 import type { PlatformAPI, ColorScheme } from '../types/index';
 
+const CONTENT_ROOT_SELECTOR = ':is(#markdown-content, .markdown-viewer-content)';
+
 // ============================================================================
 // Type Definitions
 // ============================================================================
@@ -65,6 +67,14 @@ export interface ThemeConfig {
   diagramStyle?: 'normal' | 'handDrawn';
 }
 
+interface ResolvedThemeBundle {
+  theme: ThemeConfig;
+  layoutScheme: LayoutScheme;
+  colorScheme: ColorScheme;
+  tableStyle: TableStyleConfig;
+  codeTheme: CodeThemeConfig;
+}
+
 /**
  * Border configuration (layout properties only, color from ColorScheme)
  */
@@ -112,6 +122,14 @@ interface LayoutHeadingConfig {
   spacingBefore: string;
   spacingAfter: string;
   alignment?: 'left' | 'center' | 'right';
+  /** Optional unitless line-height override (e.g. 1.25) */
+  lineHeight?: number;
+  /** Optional bottom border (e.g. for VSCode-style underlined h1/h2). Color comes from colorScheme.headings.border. */
+  borderBottom?: {
+    width: string;          // e.g. "1px"
+    style?: string;         // default 'solid'
+    paddingBottom?: string; // e.g. "0.3em"
+  };
 }
 
 /**
@@ -122,6 +140,8 @@ interface LayoutBlockConfig {
   spacingAfter?: string;
   paddingVertical?: string;
   paddingHorizontal?: string;
+  /** Optional border width for horizontal rule (hr). Color comes from colorScheme.rule.color or table.border fallback. */
+  borderWidth?: string;
 }
 
 /**
@@ -199,12 +219,12 @@ export function themeToCSS(
   css.push(generateTableCSS(tableStyle, colorScheme));
 
   // Code highlighting (use colorScheme.background.code)
-  css.push(generateCodeCSS(theme.fontScheme.code, codeTheme, layoutScheme.code, colorScheme));
+  css.push(generateCodeCSS(theme.fontScheme.code, codeTheme, layoutScheme.code, layoutScheme.body.fontSize, colorScheme));
 
   // Block spacing (uses colorScheme for blockquote border)
   css.push(generateBlockSpacingCSS(layoutScheme, colorScheme));
 
-  return css.join('\n\n');
+  return css.join('\n\n').replace(/#markdown-content/g, CONTENT_ROOT_SELECTOR);
 }
 
 /**
@@ -230,11 +250,20 @@ function generateFontAndLayoutCSS(fontScheme: FontScheme, layoutScheme: LayoutSc
   background-color: ${colorScheme.background.page};` : ''}
 }`);
 
-  // Expose surface/page as CSS variables for custom blocks
-  if (colorScheme.background.page || colorScheme.background.surface) {
+  // Expose theme colors as global CSS variables for viewer chrome and custom blocks.
+  if (colorScheme.background.page || colorScheme.background.surface || colorScheme.accent.link || colorScheme.accent.linkHover) {
     const vars: string[] = [];
     if (colorScheme.background.page) vars.push(`  --md-page-bg: ${colorScheme.background.page};`);
     if (colorScheme.background.surface) vars.push(`  --md-surface: ${colorScheme.background.surface};`);
+    if (colorScheme.accent.link) {
+      const accentBase = colorScheme.accent.link;
+      const accentSurface = colorScheme.background.surface || colorScheme.background.page || 'transparent';
+      vars.push(`  --md-accent: ${accentBase};`);
+      vars.push(`  --md-accent-bg: color-mix(in srgb, ${accentBase} 16%, ${accentSurface});`);
+      vars.push(`  --md-accent-subtle: color-mix(in srgb, ${accentBase} 22%, transparent);`);
+    }
+    if (colorScheme.accent.linkHover) vars.push(`  --md-accent-hover: ${colorScheme.accent.linkHover};`);
+    css.push(`:root {\n${vars.join('\n')}\n}`);
     css.push(`#markdown-content {\n${vars.join('\n')}\n}`);
   }
 
@@ -286,6 +315,11 @@ function generateFontAndLayoutCSS(fontScheme: FontScheme, layoutScheme: LayoutSc
       `  color: ${headingColor};`
     ];
 
+    // Optional unitless line-height (e.g. VSCode preset uses 1.25 on all headings)
+    if (layoutHeading.lineHeight !== undefined) {
+      styles.push(`  line-height: ${layoutHeading.lineHeight};`);
+    }
+
     // Add alignment from layoutScheme
     if (layoutHeading.alignment && layoutHeading.alignment !== 'left') {
       styles.push(`  text-align: ${layoutHeading.alignment};`);
@@ -297,6 +331,17 @@ function generateFontAndLayoutCSS(fontScheme: FontScheme, layoutScheme: LayoutSc
     }
     if (layoutHeading.spacingAfter && layoutHeading.spacingAfter !== '0pt') {
       styles.push(`  margin-bottom: ${themeManager.ptToPx(layoutHeading.spacingAfter)};`);
+    }
+
+    // Optional bottom border (VSCode-style underlined h1/h2)
+    if (layoutHeading.borderBottom) {
+      const bb = layoutHeading.borderBottom;
+      const borderColor = colorScheme.headings?.border || colorScheme.table.border;
+      const borderStyle = bb.style || 'solid';
+      styles.push(`  border-bottom: ${bb.width} ${borderStyle} ${borderColor};`);
+      if (bb.paddingBottom) {
+        styles.push(`  padding-bottom: ${bb.paddingBottom};`);
+      }
     }
 
     css.push(`#markdown-content ${level} {
@@ -316,16 +361,35 @@ ${styles.join('\n')}
 function generateTableCSS(tableStyle: TableStyleConfig, colorScheme: ColorScheme): string {
   const css: string[] = [];
 
-  // Base table styles - default to center layout
+  // Base table styles - display:block + overflow-x:auto enables horizontal
+  // scrolling for wide tables while width:fit-content + margin:auto preserves
+  // centering for narrow ones.
   css.push(`#markdown-content table {
   border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  width: fit-content;
+  max-width: 100%;
   margin: 13px auto;
-  overflow: auto;
 }
 
 /* Table layout: left alignment */
 #markdown-content .table-layout-left table {
   margin-left: 0;
+  margin-right: auto;
+}
+
+/* Table layout: centered auto width */
+#markdown-content.table-layout-center table {
+  width: fit-content;
+}
+
+/* Table layout: full width */
+#markdown-content.table-layout-center-full-width table {
+  display: table;
+  overflow-x: visible;
+  width: 100%;
+  margin-left: auto;
   margin-right: auto;
 }`);
 
@@ -474,6 +538,7 @@ function generateCodeCSS(
   codeConfig: { fontFamily: string },
   codeTheme: CodeThemeConfig,
   codeLayout: { fontSize: string },
+  bodyFontSize: string,
   colorScheme: ColorScheme
 ): string {
   const css: string[] = [];
@@ -481,11 +546,16 @@ function generateCodeCSS(
   // Code font settings - background from colorScheme
   const codeFontFamily = themeManager.buildFontFamily(codeConfig.fontFamily);
   const codeFontSize = themeManager.ptToPx(codeLayout.fontSize);
+  const bodyFontSizePt = parseFloat(bodyFontSize);
+  const codeFontSizePt = parseFloat(codeLayout.fontSize);
+  const inlineCodeScale = bodyFontSizePt > 0
+    ? Number((codeFontSizePt / bodyFontSizePt).toFixed(4))
+    : 1;
   const codeBackground = colorScheme.background.code;
 
   css.push(`#markdown-content code {
   font-family: ${codeFontFamily};
-  font-size: ${codeFontSize};
+  font-size: ${inlineCodeScale}em;
   background-color: ${codeBackground};
 }`);
 
@@ -594,13 +664,26 @@ function generateBlockSpacingCSS(layoutScheme: LayoutScheme, colorScheme: ColorS
 }`);
   }
 
-  // Horizontal rule spacing
+  // Horizontal rule spacing (and optional color/width)
   if (blocks.horizontalRule) {
     const hr = blocks.horizontalRule;
     const marginBefore = toPx(hr.spacingBefore);
     const marginAfter = toPx(hr.spacingAfter);
+    const hrStyles: string[] = [
+      `  margin: ${marginBefore} 0 ${marginAfter} 0;`
+    ];
+    // Only override hr rendering when explicitly configured; falling back to
+    // colorScheme.table.border (always present) would affect all themes.
+    if (hr.borderWidth !== undefined || colorScheme.rule?.color !== undefined) {
+      const width = hr.borderWidth ?? '1px';
+      const hrColor = colorScheme.rule?.color;
+      hrStyles.push(`  background-color: transparent;`);
+      hrStyles.push(`  border: 0;`);
+      hrStyles.push(`  height: 0;`);
+      hrStyles.push(`  border-top: ${width} solid ${hrColor || 'currentColor'};`);
+    }
     css.push(`#markdown-content hr {
-  margin: ${marginBefore} 0 ${marginAfter} 0;
+${hrStyles.join('\n')}
 }`);
   }
 
@@ -637,27 +720,33 @@ export function applyThemeCSS(css: string): void {
 export async function loadAndApplyTheme(themeId: string): Promise<void> {
   try {
     const platform = getPlatform();
-    
-    // Load theme preset
-    const theme = (await themeManager.loadTheme(themeId)) as unknown as ThemeConfig;
+    const bundleSupported = platform.platform === 'vscode';
 
-    // Load layout scheme
-    const layoutSchemeUrl = platform.resource.getURL(`themes/layout-schemes/${theme.layoutScheme}.json`);
-    const layoutScheme = await fetchJSON(layoutSchemeUrl) as LayoutScheme;
+    let theme: ThemeConfig;
+    let layoutScheme: LayoutScheme;
+    let colorScheme: ColorScheme;
+    let tableStyle: TableStyleConfig;
+    let codeTheme: CodeThemeConfig;
 
-    // Load color scheme
-    const colorSchemeUrl = platform.resource.getURL(`themes/color-schemes/${theme.colorScheme}.json`);
-    const colorScheme = await fetchJSON(colorSchemeUrl) as ColorScheme;
+    if (bundleSupported) {
+      await themeManager.initialize();
 
-    // Load table style
-    const tableStyle = await fetchJSON(
-      platform.resource.getURL(`themes/table-styles/${theme.tableStyle}.json`)
-    ) as TableStyleConfig;
-
-    // Load code theme
-    const codeTheme = await fetchJSON(
-      platform.resource.getURL(`themes/code-themes/${theme.codeTheme}.json`)
-    ) as CodeThemeConfig;
+      try {
+        const bundle = await fetchJSON(platform.resource.getURL(`themes/bundles/${themeId}.json`)) as ResolvedThemeBundle;
+        theme = bundle.theme;
+        layoutScheme = bundle.layoutScheme;
+        colorScheme = bundle.colorScheme;
+        tableStyle = bundle.tableStyle;
+        codeTheme = bundle.codeTheme;
+        themeManager.setCurrentTheme(theme);
+      } catch {
+        theme = (await themeManager.loadTheme(themeId)) as unknown as ThemeConfig;
+        [layoutScheme, colorScheme, tableStyle, codeTheme] = await loadThemeParts(theme, platform);
+      }
+    } else {
+      theme = (await themeManager.loadTheme(themeId)) as unknown as ThemeConfig;
+      [layoutScheme, colorScheme, tableStyle, codeTheme] = await loadThemeParts(theme, platform);
+    }
 
     // Generate and apply CSS
     const css = themeToCSS(theme, layoutScheme, colorScheme, tableStyle, codeTheme);
@@ -695,6 +784,19 @@ export async function loadAndApplyTheme(themeId: string): Promise<void> {
     console.error('[Theme] Error loading theme:', error);
     throw error;
   }
+}
+
+async function loadThemeParts(
+  theme: ThemeConfig,
+  platform: PlatformAPI,
+): Promise<[LayoutScheme, ColorScheme, TableStyleConfig, CodeThemeConfig]> {
+  const [layoutScheme, colorScheme, tableStyle, codeTheme] = await Promise.all([
+    fetchJSON(platform.resource.getURL(`themes/layout-schemes/${theme.layoutScheme}.json`)) as Promise<LayoutScheme>,
+    fetchJSON(platform.resource.getURL(`themes/color-schemes/${theme.colorScheme}.json`)) as Promise<ColorScheme>,
+    fetchJSON(platform.resource.getURL(`themes/table-styles/${theme.tableStyle}.json`)) as Promise<TableStyleConfig>,
+    fetchJSON(platform.resource.getURL(`themes/code-themes/${theme.codeTheme}.json`)) as Promise<CodeThemeConfig>,
+  ]);
+  return [layoutScheme, colorScheme, tableStyle, codeTheme];
 }
 
 /**

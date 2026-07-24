@@ -6,15 +6,43 @@ import type {
   PlatformAPI,
 } from '../types/index';
 
+const WORKSPACE_HISTORY_PROTOCOL = 'mdv-workspace:';
+
+function getWorkspaceHistoryUrl(): string | null {
+  const workspaceName = document.documentElement.dataset.viewerWorkspaceName;
+  const workspaceFilePath = document.documentElement.dataset.viewerWorkspaceFilePath;
+
+  if (!workspaceName || !workspaceFilePath) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    name: workspaceName,
+    path: workspaceFilePath,
+  });
+  return `${WORKSPACE_HISTORY_PROTOCOL}//open?${params.toString()}`;
+}
+
+function getWorkspaceHistoryPath(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== WORKSPACE_HISTORY_PROTOCOL) {
+      return null;
+    }
+    return parsed.searchParams.get('path');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get current document URL without hash/anchor
  * @returns Current document URL without hash
  */
 export function getCurrentDocumentUrl(): string {
-  // In embedded viewer mode, use the filename from the parent
-  const viewerFilePath = document.documentElement.dataset.viewerFilePath;
-  if (viewerFilePath) {
-    return `file:///${viewerFilePath}`;
+  const workspaceHistoryUrl = getWorkspaceHistoryUrl();
+  if (workspaceHistoryUrl) {
+    return workspaceHistoryUrl;
   }
 
   const viewerFilename = document.documentElement.dataset.viewerFilename;
@@ -41,7 +69,21 @@ export function getCurrentDocumentUrl(): string {
  */
 export function getFilenameFromURL(): string {
   const url = getCurrentDocumentUrl();
-  const urlParts = url.split('/');
+
+  const workspacePath = getWorkspaceHistoryPath(url);
+  if (workspacePath) {
+    const segments = workspacePath.split('/').filter(Boolean);
+    const workspaceFilename = segments[segments.length - 1] || workspacePath;
+    try {
+      return decodeURIComponent(workspaceFilename);
+    } catch {
+      return workspaceFilename;
+    }
+  }
+
+  // Strip query string before extracting filename
+  const urlWithoutQuery = url.split('?')[0];
+  const urlParts = urlWithoutQuery.split('/');
   let fileName = urlParts[urlParts.length - 1] || 'document.md';
 
   // Decode URL encoding
@@ -52,6 +94,32 @@ export function getFilenameFromURL(): string {
   }
 
   return fileName;
+}
+
+/**
+ * Convert filename to .md for saving markdown content.
+ * Preserves .slides.md; normalizes .markdown to .md; replaces other extensions.
+ */
+export function toMarkdownFilename(filename: string): string {
+  let mdFilename = filename || 'document.md';
+  const lower = mdFilename.toLowerCase();
+
+  if (lower.endsWith('.slides.md')) {
+    return mdFilename;
+  }
+  if (lower.endsWith('.markdown')) {
+    return mdFilename.slice(0, -'.markdown'.length) + '.md';
+  }
+  if (lower.endsWith('.md')) {
+    return mdFilename;
+  }
+
+  const lastDot = mdFilename.lastIndexOf('.');
+  if (lastDot > 0) {
+    return mdFilename.slice(0, lastDot) + '.md';
+  }
+
+  return mdFilename + '.md';
 }
 
 /**
@@ -92,6 +160,12 @@ export function getDocumentFilename(): string {
  */
 export function extractFileName(url: string): string {
   try {
+    const workspacePath = getWorkspaceHistoryPath(url);
+    if (workspacePath) {
+      const segments = workspacePath.split('/').filter(Boolean);
+      return decodeURIComponent(segments[segments.length - 1] || workspacePath);
+    }
+
     const urlObj = new URL(url);
     const pathname = urlObj.pathname;
     const fileName = pathname.split('/').pop() || '';
@@ -107,12 +181,8 @@ export function extractFileName(url: string): string {
  */
 export async function saveToHistory(platform: PlatformAPI): Promise<void> {
   try {
-    // Skip history in embedded viewer mode (workspace) — URLs are not real
-    if (document.documentElement.dataset.viewerFilename) return;
-
     const url = getCurrentDocumentUrl();
-    
-    const title = document.title || extractFileName(url);
+    const title = extractFileName(url) || document.title || 'document';
     
     const result = await platform.storage.get(['markdownHistory']) as { markdownHistory?: HistoryEntry[] };
     const history: HistoryEntry[] = result.markdownHistory || [];

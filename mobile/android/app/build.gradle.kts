@@ -15,6 +15,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val storeFilePath = keystoreProperties.getProperty("storeFile")
+val hasReleaseSigning = !storeFilePath.isNullOrBlank()
+    && rootProject.file(storeFilePath).exists()
+    && !keystoreProperties.getProperty("keyAlias").isNullOrBlank()
+    && !keystoreProperties.getProperty("keyPassword").isNullOrBlank()
+    && !keystoreProperties.getProperty("storePassword").isNullOrBlank()
+
 android {
     namespace = "io.xicilion.markdown_viewer"
     compileSdk = flutter.compileSdkVersion
@@ -31,10 +38,10 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystoreProperties.isNotEmpty()) {
+            if (hasReleaseSigning) {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storeFile = rootProject.file(storeFilePath)
                 storePassword = keystoreProperties.getProperty("storePassword")
             }
         }
@@ -53,8 +60,13 @@ android {
 
     buildTypes {
         release {
-            // Use release signing config from key.properties
-            signingConfig = signingConfigs.getByName("release")
+            // Use configured release signing when available; otherwise fall back to
+            // debug signing so release artifacts can still be produced.
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

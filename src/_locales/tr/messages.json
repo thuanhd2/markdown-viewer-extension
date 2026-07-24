@@ -151,9 +151,25 @@
     "message": "Kapat",
     "description": "Close button text/tooltip"
   },
+  "code_copied": {
+    "message": "Kopyalandı",
+    "description": "Tooltip shown after a code block has been copied"
+  },
+  "code_copy": {
+    "message": "Kodu kopyala",
+    "description": "Tooltip for the button that copies a code block"
+  },
+  "code_copy_failed": {
+    "message": "Kopyalama başarısız",
+    "description": "Tooltip shown when copying a code block fails"
+  },
   "contextMenu_viewAsMarkdown": {
     "message": "Markdown olarak görüntüle",
     "description": "Context menu item to view any file as markdown"
+  },
+  "contextMenu_viewAsRaw": {
+    "message": "View as Raw",
+    "description": "Context menu item to restore the page to its original state"
   },
   "copy_as_png": {
     "message": "Copy as PNG",
@@ -187,13 +203,17 @@
     "message": "DOCX olarak dışa aktar",
     "description": "Export menu item for exporting to DOCX"
   },
+  "export_menu_export_html": {
+    "message": "HTML olarak dışa aktar",
+    "description": "Export menu item for exporting to HTML"
+  },
   "export_menu_print_pdf": {
     "message": "PDF olarak yazdır",
     "description": "Export menu item for printing to PDF"
   },
-  "export_menu_save_markdown": {
-    "message": "Markdown olarak kaydet",
-    "description": "Export menu item for saving current file as Markdown"
+  "export_menu_save_file": {
+    "message": "Dosyayi kaydet",
+    "description": "Export menu item for saving current file"
   },
   "exporting": {
     "message": "Word belgesi hazırlanıyor...",
@@ -204,7 +224,7 @@
     "description": "Extension description shown in Chrome Web Store"
   },
   "extensionName": {
-    "message": "Markdown Viewer",
+    "message": "docu.md Markdown Viewer",
     "description": "Extension name"
   },
   "failed_to_open_file": {
@@ -251,14 +271,6 @@
     "message": "URL kopyalandı. Açmak için adres çubuğuna yapıştırın.",
     "description": "Message shown when file URL is copied to clipboard in Firefox"
   },
-  "heading_h2_format": {
-    "message": "Bölüm {0}",
-    "description": "Format for h2 headings. {0} is the chapter number."
-  },
-  "heading_h2_numerals": {
-    "message": "arabic",
-    "description": "Numeral system for h2: chinese, arabic, roman"
-  },
   "history_clear": {
     "message": "Geçmişi temizle",
     "description": "Clear history button"
@@ -303,6 +315,22 @@
     "message": "Dil",
     "description": "Menu item for language"
   },
+  "lightbox_close": {
+    "message": "Kapat",
+    "description": "Tooltip for closing the diagram lightbox"
+  },
+  "lightbox_fit": {
+    "message": "Ekrana sığdır",
+    "description": "Tooltip for fitting the diagram to the lightbox viewport"
+  },
+  "lightbox_zoom_in": {
+    "message": "Yakınlaştır",
+    "description": "Tooltip for zooming in in the diagram lightbox"
+  },
+  "lightbox_zoom_out": {
+    "message": "Uzaklaştır",
+    "description": "Tooltip for zooming out in the diagram lightbox"
+  },
   "more": {
     "message": "More",
     "description": "More menu tooltip"
@@ -346,6 +374,122 @@
   "recent_files": {
     "message": "Son dosyalar",
     "description": "Title for recent files section"
+  },
+  "remark_add_note": {
+    "message": "Not ekle…",
+    "description": "Placeholder and tooltip for adding a remark note"
+  },
+  "remark_cfg_title": {
+    "message": "Not modu",
+    "description": "Title for remark mode settings card"
+  },
+  "remark_cfg_auto_delete": {
+    "message": "Boş notları otomatik sil",
+    "description": "Config: auto-delete annotations with no note"
+  },
+  "remark_cfg_close_after_copy": {
+    "message": "Kopyaladıktan sonra sekmeyi kapat",
+    "description": "Config: close the file tab after copying remarks"
+  },
+  "remark_cfg_default_color": {
+    "message": "Varsayılan renk",
+    "description": "Config: default annotation color"
+  },
+  "remark_cfg_font_size": {
+    "message": "Yazı tipi boyutu",
+    "description": "Config: sidebar font size"
+  },
+  "remark_cfg_highlight_style": {
+    "message": "Vurgulama stili",
+    "description": "Config: how text is visually marked"
+  },
+  "remark_cfg_style_bg": {
+    "message": "Arka plan",
+    "description": "Highlight style: colored background"
+  },
+  "remark_cfg_style_border": {
+    "message": "Kenarlık",
+    "description": "Highlight style: bottom border"
+  },
+  "remark_cfg_style_underline": {
+    "message": "Alt çizgi",
+    "description": "Highlight style: solid underline"
+  },
+  "remark_cfg_style_wavy": {
+    "message": "Dalgalı",
+    "description": "Highlight style: wavy underline"
+  },
+  "remark_clear_all": {
+    "message": "Tüm notları temizle",
+    "description": "Tooltip for clearing all remarks"
+  },
+  "remark_color_blue": {
+    "message": "Soru",
+    "description": "Label for the blue remark category"
+  },
+  "remark_color_green": {
+    "message": "Kalsın",
+    "description": "Label for the green remark category"
+  },
+  "remark_color_pink": {
+    "message": "Endişe",
+    "description": "Label for the pink remark category"
+  },
+  "remark_color_yellow": {
+    "message": "Öneri",
+    "description": "Label for the yellow remark category"
+  },
+  "remark_copied": {
+    "message": "Kopyalandı!",
+    "description": "Temporary success state after copying remarks"
+  },
+  "remark_copy_btn": {
+    "message": "Notları kopyala",
+    "description": "Button text for copying all remarks"
+  },
+  "remark_copy_failed": {
+    "message": "Kopyalama başarısız",
+    "description": "Temporary error state when copying remarks fails"
+  },
+  "remark_copy_tooltip": {
+    "message": "Tüm notları panoya kopyala",
+    "description": "Tooltip for copying all remarks"
+  },
+  "remark_delete": {
+    "message": "Sil",
+    "description": "Tooltip for deleting a remark"
+  },
+  "remark_deleted": {
+    "message": "Silindi",
+    "description": "Status label shown after a remark is deleted"
+  },
+  "remark_empty_hint": {
+    "message": "Not eklemek için metin seç",
+    "description": "Empty state hint in the remarks sidebar"
+  },
+  "remark_exit_mode": {
+    "message": "Not modundan çık",
+    "description": "Toolbar button title for leaving remark mode"
+  },
+  "remark_export_intro": {
+    "message": "**{0}** dosyasını inceledim ve geri bildirimlerim şöyle:",
+    "description": "Intro line for exported remarks. {0} is the file path or title."
+  },
+  "remark_export_note": {
+    "message": "Not",
+    "description": "Label preceding the note text in exported remarks"
+  },
+  "remark_mode": {
+    "message": "Not modu",
+    "description": "Toolbar button title for entering remark mode"
+  },
+  "remark_sidebar_title": {
+    "message": "Notlar",
+    "description": "Sidebar title for the remarks panel"
+  },
+  "remark_undo": {
+    "message": "Geri al",
+    "description": "Button text for undoing remark deletion"
   },
   "remove_from_list": {
     "message": "Remove from list",
@@ -519,46 +663,6 @@
     "message": "Ayarlar kaydedildi",
     "description": "Toast when settings saved"
   },
-  "settings_support_canvas": {
-    "message": "JSON Canvas diyagramları (.canvas)",
-    "description": "Checkbox label for enabling JSON Canvas file support"
-  },
-  "settings_support_dot": {
-    "message": "Graphviz DOT diyagramları (.gv)",
-    "description": "Checkbox label for Graphviz DOT format support"
-  },
-  "settings_support_drawio": {
-    "message": "drawio diyagramları (.drawio)",
-    "description": "Checkbox label for enabling drawio file support"
-  },
-  "settings_support_infographic": {
-    "message": "İnfografikler (.infographic)",
-    "description": "Checkbox label for Infographic format support"
-  },
-  "settings_support_mermaid": {
-    "message": "Mermaid diyagramları (.mermaid)",
-    "description": "Checkbox label for Mermaid format support"
-  },
-  "settings_support_plantuml": {
-    "message": "PlantUML diyagramları (.plantuml, .puml)",
-    "description": "Checkbox label for enabling PlantUML file support"
-  },
-  "settings_support_slidev": {
-    "message": "Slidev slides (.slides.md)",
-    "description": "Checkbox label for enabling Slidev file support"
-  },
-  "settings_support_vega": {
-    "message": "Vega grafikleri (.vega)",
-    "description": "Checkbox label for Vega format support"
-  },
-  "settings_support_vega_lite": {
-    "message": "Vega-Lite grafikleri (.vl, .vega-lite)",
-    "description": "Checkbox label for Vega-Lite format support"
-  },
-  "settings_supported_formats_title": {
-    "message": "Desteklenen Formatlar",
-    "description": "Title for supported file formats section in settings"
-  },
   "settings_swap_panel_side": {
     "message": "Swap TOC / file tree side",
     "description": "Checkbox label for swapping TOC and workspace file tree panel side"
@@ -574,6 +678,10 @@
   "settings_table_layout_center": {
     "message": "Orta",
     "description": "Table layout option: center aligned"
+  },
+  "settings_table_layout_full_width": {
+    "message": "Tam genislik",
+    "description": "Option for centered tables stretched to the full content width"
   },
   "settings_table_layout_left": {
     "message": "Sol",
@@ -636,8 +744,8 @@
     "description": "Toolbar layout toggle tooltip for normal mode"
   },
   "toolbar_print_disabled_title": {
-    "message": "Yazdırma yalnızca yerel dosyalar için kullanılabilir",
-    "description": "Tooltip when print button is disabled for remote files"
+    "message": "Yazdırma sayfa güvenlik politikası (korumalı alan) tarafından engelleniyor",
+    "description": "Tooltip when print button is disabled due to sandbox restriction"
   },
   "toolbar_print_title": {
     "message": "Yazdır",

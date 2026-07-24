@@ -8,11 +8,6 @@ import type { LocaleInfo, LocaleRegistry } from '../../utils/localization';
 import { translate, applyI18nText, getUiLocale } from './i18n-helpers';
 import { storageGet, storageSet } from './storage-helper';
 import type { EmojiStyle } from '../../types/docx.js';
-import {
-  SUPPORTED_FORMATS,
-  getDefaultSupportedExtensions,
-  type SupportedExtensions,
-} from '../../types/formats';
 
 // Helper: Send message compatible with both Chrome and Firefox
 function safeSendMessage(message: unknown): void {
@@ -127,7 +122,7 @@ export type FrontmatterDisplay = 'hide' | 'table' | 'raw';
 /**
  * Table layout mode
  */
-export type TableLayout = 'left' | 'center';
+export type TableLayout = 'left' | 'center' | 'center-full-width';
 
 /**
  * Panel side swap setting
@@ -142,7 +137,6 @@ interface Settings {
   preferredLocale: string;
   docxHrDisplay: 'pageBreak' | 'line' | 'hide';
   docxEmojiStyle?: EmojiStyle;
-  supportedExtensions?: SupportedExtensions;
   frontmatterDisplay?: FrontmatterDisplay;
   tableMergeEmpty?: boolean;
   tableLayout?: TableLayout;
@@ -186,7 +180,6 @@ export function createSettingsTabManager({
     preferredLocale: DEFAULT_SETTING_LOCALE,
     docxHrDisplay: 'hide',
     docxEmojiStyle: 'system',
-    supportedExtensions: getDefaultSupportedExtensions(),
     frontmatterDisplay: 'hide',
     tableMergeEmpty: true,
     tableLayout: 'center',
@@ -349,16 +342,9 @@ export function createSettingsTabManager({
     // Auto Refresh settings (Chrome only)
     loadAutoRefreshSettingsUI();
 
-    // Load supported file extensions checkboxes
-    const ext = settings.supportedExtensions || getDefaultSupportedExtensions();
+    // Remark Mode settings
+    loadRemarkSettingsUI();
 
-    for (const format of SUPPORTED_FORMATS) {
-      const el = document.getElementById(`support-${format.fileType}`) as HTMLInputElement | null;
-      if (el) {
-        el.checked = ext[format.fileType] ?? true;
-        addExtensionChangeListener(el, format.fileType);
-      }
-    }
   }
 
   async function loadLocalesIntoSelect(localeSelect: HTMLSelectElement): Promise<void> {
@@ -537,22 +523,6 @@ export function createSettingsTabManager({
   }
 
   /**
-   * Add change listener for extension checkbox
-   */
-  function addExtensionChangeListener(el: HTMLInputElement, key: string): void {
-    if (!el.dataset.listenerAdded) {
-      el.dataset.listenerAdded = 'true';
-      el.addEventListener('change', async () => {
-        if (!settings.supportedExtensions) {
-          settings.supportedExtensions = getDefaultSupportedExtensions();
-        }
-        settings.supportedExtensions[key] = el.checked;
-        await saveSettingsToStorage();
-      });
-    }
-  }
-
-  /**
    * Load and setup Auto Refresh settings UI (Chrome only feature)
    */
   function loadAutoRefreshSettingsUI(): void {
@@ -629,6 +599,56 @@ export function createSettingsTabManager({
         }
       );
     }
+  }
+
+  /**
+   * Remark Mode settings card
+   */
+  function loadRemarkSettingsUI(): void {
+    const REMARK_STORAGE_KEY = 'remarkConfig';
+    const autoDeleteEl = document.getElementById('remark-auto-delete-empty') as HTMLInputElement | null;
+    const closeAfterCopyEl = document.getElementById('remark-close-after-copy') as HTMLInputElement | null;
+    const highlightStyleEl = document.getElementById('remark-highlight-style') as HTMLSelectElement | null;
+    const defaultColorEl = document.getElementById('remark-default-color') as HTMLSelectElement | null;
+    const fontSizeEl = document.getElementById('remark-font-size') as HTMLSelectElement | null;
+
+    if (!autoDeleteEl || !closeAfterCopyEl || !highlightStyleEl || !defaultColorEl || !fontSizeEl) {
+      return;
+    }
+
+    // Load current remark config from storage
+    storageGet([REMARK_STORAGE_KEY]).then((result) => {
+      const cfg = (result[REMARK_STORAGE_KEY] || {}) as Record<string, unknown>;
+      autoDeleteEl.checked = cfg.autoDeleteEmpty !== false;
+      closeAfterCopyEl.checked = cfg.closeAfterCopy === true;
+      highlightStyleEl.value = (cfg.highlightStyle as string) || 'background';
+      defaultColorEl.value = (cfg.defaultColor as string) || 'yellow';
+      fontSizeEl.value = String(cfg.fontSize || 13);
+    }).catch(() => { /* use defaults already in HTML */ });
+
+    function saveRemarkConfig(): void {
+      const cfg = {
+        autoDeleteEmpty: autoDeleteEl!.checked,
+        closeAfterCopy: closeAfterCopyEl!.checked,
+        highlightStyle: highlightStyleEl!.value,
+        defaultColor: defaultColorEl!.value,
+        fontSize: parseInt(fontSizeEl!.value, 10),
+      };
+      storageSet({ [REMARK_STORAGE_KEY]: cfg }).then(() => {
+        showMessage(translate('settings_save_success'), 'success');
+      }).catch(() => {
+        showMessage(translate('settings_save_failed'), 'error');
+      });
+    }
+
+    // Wire change listeners
+    const elements = [autoDeleteEl, closeAfterCopyEl, highlightStyleEl, defaultColorEl, fontSizeEl];
+    elements.forEach((el) => {
+      if (!el.dataset.listenerAdded) {
+        el.dataset.listenerAdded = 'true';
+        el.addEventListener('change', saveRemarkConfig);
+      }
+    });
   }
 
   /**
@@ -811,14 +831,6 @@ export function createSettingsTabManager({
         settings.docxEmojiStyle = docxEmojiStyleEl.value as EmojiStyle;
       }
 
-      // Load supported file extensions from checkboxes
-      const extResult: SupportedExtensions = {};
-      for (const format of SUPPORTED_FORMATS) {
-        const el = document.getElementById(`support-${format.fileType}`) as HTMLInputElement | null;
-        extResult[format.fileType] = el?.checked ?? true;
-      }
-      settings.supportedExtensions = extResult;
-
       await storageSet({
         markdownViewerSettings: settings
       });
@@ -854,7 +866,6 @@ export function createSettingsTabManager({
         preferredLocale: DEFAULT_SETTING_LOCALE,
         docxHrDisplay: 'hide',
         docxEmojiStyle: 'system',
-        supportedExtensions: getDefaultSupportedExtensions(),
         tableMergeEmpty: true,
         tableLayout: 'center',
         swapPanelSide: false,

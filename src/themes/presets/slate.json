@@ -4,7 +4,7 @@
   "name_en": "Slate",
   "description": "冷调石板蓝，技术博客与产品文档首选",
   "description_en": "Cool slate tones for tech blogs and product docs",
-  "author": "Markdown Viewer Extension",
+  "author": "docu.md Markdown Viewer",
   "version": "1.0.0",
   "fontScheme": {
     "body": { "fontFamily": "Helvetica Neue" },

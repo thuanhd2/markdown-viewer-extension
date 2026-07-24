@@ -17,6 +17,12 @@ interface TocManager {
   setupResponsiveToc(): Promise<void>;
 }
 
+interface TocManagerOptions {
+  getDesiredVisibility?: () => boolean | undefined;
+}
+
+const TOC_NAVIGATION_SCROLL_BEHAVIOR: ScrollBehavior = 'auto';
+
 /**
  * Creates a TOC manager for handling table of contents functionality.
  * @param saveFileState - Function to save file state
@@ -26,9 +32,11 @@ interface TocManager {
 export function createTocManager(
   saveFileState: SaveFileStateFunction,
   getFileState: GetFileStateFunction,
-  isMobile: boolean
+  isMobile: boolean,
+  options: TocManagerOptions = {}
 ): TocManager {
   let tocGenerationToken = 0;
+  const { getDesiredVisibility } = options;
 
   function getScrollContainer(): HTMLElement | null {
     return document.getElementById('markdown-wrapper') as HTMLElement | null;
@@ -37,7 +45,7 @@ export function createTocManager(
   function scrollTargetIntoView(target: HTMLElement): void {
     const scrollContainer = getScrollContainer();
     if (!scrollContainer) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.scrollIntoView({ behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR, block: 'start' });
       return;
     }
 
@@ -47,7 +55,7 @@ export function createTocManager(
 
     scrollContainer.scrollTo({
       top: Math.max(0, targetTop),
-      behavior: 'smooth'
+      behavior: TOC_NAVIGATION_SCROLL_BEHAVIOR
     });
   }
 
@@ -60,6 +68,14 @@ export function createTocManager(
     const tocDiv = document.getElementById('table-of-contents');
 
     if (!contentDiv || !tocDiv) return;
+
+    if (document.documentElement.dataset.codeView === '1') {
+      tocDiv.style.display = 'none';
+      tocDiv.classList.add('hidden');
+      document.body.classList.add('toc-hidden');
+      document.getElementById('toc-overlay')?.classList.add('hidden');
+      return;
+    }
 
     const headings = contentDiv.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
@@ -122,8 +138,19 @@ export function createTocManager(
     }
 
     // Apply saved TOC visibility state after generating TOC
-    const savedState = await getFileState();
+    const desiredVisibility = getDesiredVisibility?.();
+    const savedState = desiredVisibility === undefined
+      ? await getFileState()
+      : undefined;
     if (token !== tocGenerationToken) {
+      return;
+    }
+
+    if (document.documentElement.dataset.codeView === '1') {
+      tocDiv.style.display = 'none';
+      tocDiv.classList.add('hidden');
+      document.body.classList.add('toc-hidden');
+      document.getElementById('toc-overlay')?.classList.add('hidden');
       return;
     }
     const overlayDiv = document.getElementById('toc-overlay');
@@ -131,7 +158,9 @@ export function createTocManager(
     if (overlayDiv) {
       // Determine desired visibility: use saved state if available, otherwise use responsive default
       let shouldBeVisible: boolean;
-      if (savedState.tocVisible !== undefined) {
+      if (desiredVisibility !== undefined) {
+        shouldBeVisible = desiredVisibility;
+      } else if (savedState?.tocVisible !== undefined) {
         shouldBeVisible = savedState.tocVisible;
       } else {
         // No saved state - only mobile uses collapsed TOC by default.
