@@ -142,6 +142,7 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
         const cells: TableCell[] = [];
 
         const rowChildren = row.children || [];
+        let gridColIndex = 0; // Actual grid column position (accounts for colSpan & skipped merged cells)
         for (let colIndex = 0; colIndex < rowChildren.length; colIndex++) {
           const cell = rowChildren[colIndex];
 
@@ -151,6 +152,7 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
               const cellInfo = mergeInfo[dataRowIndex]?.[colIndex];
               if (cellInfo && !cellInfo.shouldRender) {
                 // Skip this cell - it's merged into the cell above
+                gridColIndex += 1; // The merged cell still occupies one grid column
                 continue;
               }
             }
@@ -251,6 +253,19 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
                 colSpan = cellInfo.colspan;
               }
             }
+
+            // Cell-level width (tcW): sum the widths of the grid columns this cell spans.
+            // Google Docs reads tcW per cell; without it, columns fall back to autofit.
+            const span = colSpan ?? 1;
+            let cellWidth: { size: number; type: typeof WidthType.DXA } | undefined;
+            if (columnWidths.length > 0) {
+              const widthEnd = Math.min(gridColIndex + span, columnWidths.length);
+              const widthSum = columnWidths
+                .slice(gridColIndex, widthEnd)
+                .reduce((acc, w) => acc + w, 0);
+              cellWidth = { size: widthSum, type: WidthType.DXA };
+            }
+            gridColIndex += span;
             
             // Apply last row bottom border if this cell is in last row OR spans to last row
             if (!isHeaderRow && (isLastRow || cellSpansToLastRow)) {
@@ -267,6 +282,7 @@ export function createTableConverter({ themeStyles, convertInlineNodes, mergeEmp
               shading,
               rowSpan,      // Add vertical merge span
               columnSpan: colSpan,  // Add horizontal merge span
+              width: cellWidth,  // Cell-level width (tcW) — Google Docs reads this over gridCol
             };
 
             cells.push(new TableCell(cellConfig));
