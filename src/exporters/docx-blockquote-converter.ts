@@ -140,7 +140,8 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
     const totalIndent = listIndent + blockquoteIndent;
 
     // Create the table cell with blockquote styling
-    const contentWidthDxa = convertInchesToTwip(6.5 - totalIndent);
+    // 6.25in ≈ data table width (449.28pt), so quote boxes match table width
+    const contentWidthDxa = convertInchesToTwip(6.25 - totalIndent);
     const cell = new TableCell({
       children: cellChildren,
       margins: cellPadding,
