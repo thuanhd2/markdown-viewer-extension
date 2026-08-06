@@ -132,10 +132,20 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
       || themeStyles.pageBackground
       || 'FFFFFF';
 
+    // Calculate indent for this blockquote level
+    // For top-level (nestLevel=0): use listLevel indent if inside a list
+    // For nested blockquotes (nestLevel>0): use a fixed small indent relative to parent
+    const listIndent = listLevel > 0 ? 0.5 * listLevel : 0;
+    const blockquoteIndent = 0.2 * nestLevel; // Fixed indent per nesting level
+    const totalIndent = listIndent + blockquoteIndent;
+
     // Create the table cell with blockquote styling
+    // 6.25in ≈ data table width (449.28pt), so quote boxes match table width
+    const contentWidthDxa = convertInchesToTwip(6.25 - totalIndent);
     const cell = new TableCell({
       children: cellChildren,
       margins: cellPadding,
+      width: { size: contentWidthDxa, type: WidthType.DXA },  // Cell-level width (tcW)
       borders: {
         top: { style: BorderStyle.SINGLE, size: 0, color: hiddenBorderColor },
         bottom: { style: BorderStyle.SINGLE, size: 0, color: hiddenBorderColor },
@@ -156,13 +166,6 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
       children: [cell],
     });
 
-    // Calculate indent for this blockquote level
-    // For top-level (nestLevel=0): use listLevel indent if inside a list
-    // For nested blockquotes (nestLevel>0): use a fixed small indent relative to parent
-    const listIndent = listLevel > 0 ? 0.5 * listLevel : 0;
-    const blockquoteIndent = 0.2 * nestLevel; // Fixed indent per nesting level
-    const totalIndent = listIndent + blockquoteIndent;
-
     // Width calculation:
     // - Top level: full content width minus indent
     // - Nested: use 100% of parent cell width (parent already constrains it)
@@ -173,7 +176,8 @@ export function createBlockquoteConverter({ themeStyles, convertInlineNodes, con
       rows: [row],
       width: isNested 
         ? { size: 100, type: WidthType.PERCENTAGE }  // Nested: fill parent cell
-        : { size: convertInchesToTwip(6.5 - listIndent), type: WidthType.DXA },  // Top level: calculated width
+        : { size: contentWidthDxa, type: WidthType.DXA },  // Top level: calculated width
+      columnWidths: [contentWidthDxa],  // Ensure gridCol matches cell width (Google Docs reads gridCol)
       layout: TableLayoutType.FIXED,
       indent: isNested
         ? undefined  // Nested: no extra indent, align with parent text
